@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pileup Runner Web</title>
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+<header class="topbar">
+	<h1>Pileup&nbsp;Runner<span class="web">web</span></h1>
+	<div class="stats">
+		<div class="stat"><span class="k">DX</span><span class="v" id="stat-dx">—</span></div>
+		<div class="stat"><span class="k">Time</span><span class="v" id="stat-time">00:00</span></div>
+		<div class="stat"><span class="k">QSOs</span><span class="v" id="stat-qsos">0</span></div>
+		<div class="stat"><span class="k">Score</span><span class="v score" id="stat-score">0</span></div>
+	</div>
+	<div class="actions">
+		<button id="btn-start" type="button">Start Pileup</button>
+		<button id="btn-pause" type="button" disabled>Pause</button>
+		<button id="btn-stop" type="button" disabled>Stop</button>
+		<button id="btn-radio" type="button">Radio…</button>
+	</div>
+</header>
+
+<main class="workspace">
+	<section class="radio-panel" id="radio-panel">
+		<canvas id="wf-slow" class="wf-slow" title="Slow waterfall"></canvas>
+		<div class="splitter" id="splitter" title="Drag to resize the slow waterfall"></div>
+		<canvas id="wf-scale" class="wf-scale" title="Frequency scale — click to tune, drag to scroll"></canvas>
+		<canvas id="wf-main" class="wf-main" title="Waterfall — click to tune"></canvas>
+		<div class="wf-overlay">
+			<button id="btn-page" class="page-btn" type="button"
+				title="Left click = PageUp, right click = PageDown">⇅</button>
+			<div class="readout">
+				<span id="readout-freq">14025.00</span>
+				<span id="readout-bw">500 Hz</span>
+				<span id="readout-state" class="state-rx">RX</span>
+			</div>
+		</div>
+	</section>
+
+	<aside class="control-panel">
+		<label class="call-label" for="call-input">Callsign</label>
+		<input id="call-input" class="call-input" type="text" autocomplete="off"
+			spellcheck="false" maxlength="12" placeholder="…">
+
+		<div class="msg-grid" id="msg-grid">
+			<button type="button" data-key="F1"><kbd>F1</kbd><span>QRZ</span></button>
+			<button type="button" data-key="F2"><kbd>F2</kbd><span>5NN</span></button>
+			<button type="button" data-key="F3"><kbd>F3</kbd><span>TU UP</span></button>
+			<button type="button" data-key="F4"><kbd>F4</kbd><span>My Call</span></button>
+			<button type="button" data-key="F5"><kbd>F5</kbd><span>His Call</span></button>
+			<button type="button" data-key="F6"><kbd>F6</kbd><span>NIL</span></button>
+			<button type="button" data-key="F7"><kbd>F7</kbd><span>AGN</span></button>
+			<button type="button" id="btn-save"><kbd>↵</kbd><span>Save</span></button>
+		</div>
+
+		<div class="log" id="log-panel">
+			<table>
+				<thead>
+					<tr><th>Time</th><th>Call</th><th>Freq</th><th>C</th><th>SNR</th><th></th></tr>
+				</thead>
+				<tbody id="log-body"></tbody>
+			</table>
+		</div>
+
+		<p class="hint">
+			<kbd>\</kbd> QRZ · <kbd>;</kbd> his call + 5NN · <kbd>.</kbd> TU UP + log<br>
+			<kbd>PgUp</kbd>/<kbd>PgDn</kbd> scroll · <kbd>↑</kbd>/<kbd>↓</kbd> bandwidth · <kbd>Esc</kbd> abort
+		</p>
+	</aside>
+</main>
+
+<dialog id="dlg-pileup">
+	<form method="dialog" id="form-pileup">
+		<h2>Pileup Settings</h2>
+		<div class="grid">
+			<label>DX-pedition callsign<input name="dxCall" type="text" required maxlength="12"></label>
+			<label>Operator's callsign<input name="opCall" type="text" maxlength="12"></label>
+			<label>Number of callers
+				<input name="callers" type="number" min="1" max="1000" list="caller-presets" required>
+				<datalist id="caller-presets">
+					<option value="10"></option><option value="30"></option>
+					<option value="100"></option><option value="300"></option><option value="1000"></option>
+				</datalist>
+			</label>
+			<label>Average SNR, dB<input name="snrDb" type="number" min="3" max="30" required></label>
+			<label>Difficult continent
+				<select name="difficult">
+					<option value="AS">AS</option><option value="EU">EU</option><option value="NA">NA</option>
+				</select>
+			</label>
+			<label>Session length, min<input name="minutes" type="number" min="1" max="120" required></label>
+		</div>
+		<fieldset class="modes">
+			<legend>Mode</legend>
+			<label><input type="radio" name="mode" value="practice"> Practice</label>
+			<label><input type="radio" name="mode" value="competition"> Competition <small>(100 callers, 15 dB, 15 min)</small></label>
+		</fieldset>
+		<menu>
+			<button value="cancel" type="submit" class="ghost">Cancel</button>
+			<button value="ok" type="submit" class="primary">Start</button>
+		</menu>
+	</form>
+</dialog>
+
+<dialog id="dlg-radio">
+	<form method="dialog" id="form-radio">
+		<h2>Radio &amp; Keyer</h2>
+		<div class="grid">
+			<label>CW pitch, Hz<input name="pitch" type="range" min="300" max="1000" step="10"><output></output></label>
+			<label>Filter bandwidth, Hz<input name="bandwidth" type="range" min="100" max="3000" step="50"><output></output></label>
+			<label>AF gain<input name="afGain" type="range" min="0" max="1" step="0.01"><output></output></label>
+			<label>Sidetone gain<input name="sidetoneGain" type="range" min="0" max="1" step="0.01"><output></output></label>
+			<label>Keyer speed, WPM<input name="wpm" type="range" min="15" max="45" step="1"><output></output></label>
+			<label>Auto DX call every N-th QSO<input name="autoDxCallEvery" type="number" min="1" max="10"></label>
+		</div>
+		<label class="check"><input type="checkbox" name="esm"> ESM — Enter Sends Message</label>
+		<menu><button value="ok" type="submit" class="primary">Close</button></menu>
+	</form>
+</dialog>
+
+<dialog id="dlg-results">
+	<h2>Session Result</h2>
+	<div id="results-body"></div>
+	<menu>
+		<button type="button" id="btn-adif" class="ghost">Download ADIF</button>
+		<button type="button" id="btn-history" class="ghost">Download history</button>
+		<button type="button" id="btn-results-close" class="primary">Close</button>
+	</menu>
+</dialog>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
