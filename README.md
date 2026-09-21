@@ -4,7 +4,7 @@ A web alternative to the fantastic CW training tool &quot;Pileup Runner&quot;.
 
 ## Screenshot
 
-![Screenshot](https://github.com/skurk/pileup-runner-web/blob/main/doc/screenshot.png?raw=true)
+![Screenshot](https://github.com/skurk/pileup-runner-web/blob/main/screenshot.png?raw=true)
 
 ## Features
 
