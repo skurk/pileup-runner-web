@@ -18,6 +18,10 @@ A web alternative to the fantastic CW training tool &quot;Pileup Runner&quot;.
 
 Modern web browser (Chrome, Brave, Opera, Edge, or equivalent)
 
+## License
+
+This project is released under the GNU General Public License v3.0, see the included LICENSE file for details.
+
 ## AI usage
 
 AI was used to create this application.
