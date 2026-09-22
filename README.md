@@ -6,6 +6,10 @@ A web alternative to the fantastic CW training tool &quot;Pileup Runner&quot;.
 
 ![Screenshot](https://github.com/skurk/pileup-runner-web/blob/main/screenshot.png?raw=true)
 
+## Status
+
+Playable, and apparently working perfectly fine.
+
 ## Features
 
 - Simple user interface, similar to the original application
