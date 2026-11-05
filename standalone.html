@@ -1,0 +1,2686 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pileup Runner Web — standalone</title>
+<style>
+:root {
+	--bg: #0b0e13;
+	--panel: #151a22;
+	--panel-2: #1c232d;
+	--line: #2b3440;
+	--text: #d7e0ea;
+	--dim: #8fa3b5;
+	--accent: #3ddc84;
+	--danger: #ff5a52;
+	--warn: #ffc14d;
+	color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+	height: 100%;
+	margin: 0;
+}
+
+body {
+	background: var(--bg);
+	color: var(--text);
+	font-family: ui-sans-serif, system-ui, "Segoe UI", sans-serif;
+	font-size: 14px;
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
+}
+
+/* ---------- top bar ---------- */
+
+.topbar {
+	display: flex;
+	align-items: center;
+	gap: 1.5rem;
+	padding: 0.5rem 1rem;
+	background: var(--panel);
+	border-bottom: 1px solid var(--line);
+	flex: none;
+}
+
+.topbar h1 {
+	font-size: 1rem;
+	margin: 0;
+	letter-spacing: 0.02em;
+	white-space: nowrap;
+}
+
+.topbar h1 .web {
+	font-size: 0.6rem;
+	color: var(--accent);
+	border: 1px solid var(--accent);
+	border-radius: 3px;
+	padding: 0 3px;
+	margin-left: 5px;
+	vertical-align: 2px;
+}
+
+.stats {
+	display: flex;
+	gap: 1.25rem;
+	margin-left: auto;
+}
+
+.stat { display: flex; flex-direction: column; line-height: 1.1; }
+.stat .k { font-size: 0.65rem; color: var(--dim); text-transform: uppercase; letter-spacing: 0.08em; }
+.stat .v { font-family: ui-monospace, monospace; font-size: 1.05rem; }
+.stat .v.score { color: var(--accent); font-weight: 700; }
+
+.actions { display: flex; gap: 0.4rem; }
+
+button {
+	font: inherit;
+	color: var(--text);
+	background: var(--panel-2);
+	border: 1px solid var(--line);
+	border-radius: 5px;
+	padding: 0.35rem 0.75rem;
+	cursor: pointer;
+}
+
+button:hover:not(:disabled) { background: #263040; }
+button:disabled { opacity: 0.4; cursor: default; }
+button.primary { background: var(--accent); color: #06220f; border-color: var(--accent); font-weight: 600; }
+button.ghost { background: transparent; }
+
+#btn-start {
+	background: var(--accent);
+	color: #06220f;
+	border-color: var(--accent);
+	font-weight: 700;
+	box-shadow: 0 0 14px rgba(61, 220, 132, 0.4);
+}
+
+#btn-start:hover:not(:disabled) { background: #5ff2a1; }
+
+/* Once a session is running it is no longer the thing to look at. */
+#btn-start:disabled {
+	background: var(--panel-2);
+	color: var(--text);
+	border-color: var(--line);
+	font-weight: 400;
+	box-shadow: none;
+}
+
+/* ---------- workspace ---------- */
+
+.workspace {
+	flex: 1;
+	display: flex;
+	min-height: 0;
+}
+
+.radio-panel {
+	flex: 1;
+	display: flex;
+	min-width: 0;
+	position: relative;
+	background: #05070a;
+}
+
+.wf-slow { width: 150px; flex: none; height: 100%; }
+.wf-scale { width: 76px; flex: none; height: 100%; }
+.wf-main { flex: 1; min-width: 0; height: 100%; cursor: crosshair; }
+
+.splitter {
+	width: 5px;
+	flex: none;
+	background: var(--line);
+	cursor: col-resize;
+}
+
+.wf-overlay {
+	position: absolute;
+	top: 8px;
+	right: 12px;
+	display: flex;
+	align-items: center;
+	gap: 0.6rem;
+	pointer-events: none;
+}
+
+.wf-overlay > * { pointer-events: auto; }
+
+.page-btn { padding: 0.15rem 0.5rem; font-size: 1rem; line-height: 1; }
+
+.readout {
+	display: flex;
+	gap: 0.6rem;
+	align-items: center;
+	font-family: ui-monospace, monospace;
+	background: rgba(8, 11, 15, 0.8);
+	border: 1px solid var(--line);
+	border-radius: 5px;
+	padding: 0.25rem 0.6rem;
+}
+
+#readout-freq { font-size: 1.05rem; color: var(--accent); }
+#readout-state { font-weight: 700; padding: 0 0.3rem; border-radius: 3px; }
+.state-rx { color: var(--accent); }
+.state-tx { color: #2a0a08; background: var(--danger); }
+
+/* ---------- control panel ---------- */
+
+.control-panel {
+	width: 320px;
+	flex: none;
+	background: var(--panel);
+	border-left: 1px solid var(--line);
+	padding: 0.75rem;
+	display: flex;
+	flex-direction: column;
+	gap: 0.6rem;
+	overflow: hidden;
+}
+
+.call-label {
+	font-size: 0.65rem;
+	color: var(--dim);
+	text-transform: uppercase;
+	letter-spacing: 0.08em;
+}
+
+.call-input {
+	font: 700 1.6rem/1 ui-monospace, monospace;
+	text-transform: uppercase;
+	letter-spacing: 0.08em;
+	text-align: center;
+	color: var(--text);
+	background: #0a0d12;
+	border: 1px solid var(--line);
+	border-radius: 6px;
+	padding: 0.5rem;
+	width: 100%;
+}
+
+.call-input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+
+.msg-grid {
+	display: grid;
+	grid-template-columns: repeat(4, 1fr);
+	gap: 0.3rem;
+}
+
+.msg-grid button {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 2px;
+	padding: 0.35rem 0.1rem;
+	font-size: 0.7rem;
+}
+
+.msg-grid button.esm-next { border-color: var(--danger); color: var(--danger); }
+
+kbd {
+	font-family: ui-monospace, monospace;
+	font-size: 0.65rem;
+	color: var(--dim);
+	background: #0a0d12;
+	border: 1px solid var(--line);
+	border-radius: 3px;
+	padding: 0 3px;
+}
+
+.log {
+	flex: 1;
+	min-height: 0;
+	overflow: auto;
+	background: #0d1b2e;
+	border: 1px solid #1d3a5c;
+	border-radius: 6px;
+}
+
+.log.competition { background: #2a0e10; border-color: #5c1d21; }
+
+.log table { width: 100%; border-collapse: collapse; font-family: ui-monospace, monospace; font-size: 0.75rem; }
+.log th { text-align: left; color: var(--dim); font-weight: 400; padding: 0.3rem 0.4rem; position: sticky; top: 0; background: inherit; }
+.log td { padding: 0.25rem 0.4rem; border-top: 1px solid rgba(255, 255, 255, 0.05); white-space: nowrap; }
+.log .st-good { color: var(--accent); font-weight: 700; }
+.log .st-mult { color: var(--warn); font-weight: 700; }
+.log .st-bad { color: var(--danger); }
+.log .correct { color: var(--danger); font-size: 0.7rem; }
+
+.hint { margin: 0; font-size: 0.7rem; color: var(--dim); line-height: 1.7; }
+
+/* ---------- dialogs ---------- */
+
+dialog {
+	background: var(--panel);
+	color: var(--text);
+	border: 1px solid var(--line);
+	border-radius: 10px;
+	padding: 1.25rem;
+	min-width: 380px;
+	max-width: 520px;
+}
+
+dialog::backdrop { background: rgba(0, 0, 0, 0.65); }
+dialog h2 { margin: 0 0 1rem; font-size: 1rem; }
+
+dialog .grid { display: grid; gap: 0.7rem; }
+dialog label { display: grid; gap: 0.25rem; font-size: 0.8rem; color: var(--dim); }
+dialog label.check { display: flex; align-items: center; gap: 0.5rem; margin-top: 0.8rem; }
+
+dialog input[type="text"], dialog input[type="number"], dialog select {
+	font: inherit;
+	color: var(--text);
+	background: #0a0d12;
+	border: 1px solid var(--line);
+	border-radius: 5px;
+	padding: 0.35rem 0.5rem;
+	text-transform: none;
+}
+
+dialog input[type="text"] { text-transform: uppercase; font-family: ui-monospace, monospace; }
+dialog input[type="range"] { width: 100%; accent-color: var(--accent); }
+dialog output { font-family: ui-monospace, monospace; color: var(--text); font-size: 0.75rem; }
+
+dialog .modes { border: 1px solid var(--line); border-radius: 6px; margin: 1rem 0 0; padding: 0.6rem 0.8rem; }
+dialog .modes legend { font-size: 0.7rem; color: var(--dim); padding: 0 0.3rem; }
+dialog .modes label { display: flex; align-items: center; gap: 0.4rem; color: var(--text); }
+dialog .modes small { color: var(--dim); }
+
+dialog menu { display: flex; justify-content: flex-end; gap: 0.5rem; margin: 1.25rem 0 0; padding: 0; }
+
+#results-body { font-family: ui-monospace, monospace; font-size: 0.85rem; line-height: 1.9; }
+#results-body .big { font-size: 2rem; color: var(--accent); font-weight: 700; }
+#results-body .note { font-family: inherit; font-size: 0.75rem; color: var(--dim); line-height: 1.5; }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+	<h1>Pileup&nbsp;Runner<span class="web">web</span></h1>
+	<div class="stats">
+		<div class="stat"><span class="k">DX</span><span class="v" id="stat-dx">—</span></div>
+		<div class="stat"><span class="k">Time</span><span class="v" id="stat-time">00:00</span></div>
+		<div class="stat"><span class="k">QSOs</span><span class="v" id="stat-qsos">0</span></div>
+		<div class="stat"><span class="k">Score</span><span class="v score" id="stat-score">0</span></div>
+	</div>
+	<div class="actions">
+		<button id="btn-start" type="button">Start Pileup</button>
+		<button id="btn-pause" type="button" disabled>Pause</button>
+		<button id="btn-stop" type="button" disabled>Stop</button>
+		<button id="btn-radio" type="button">Radio…</button>
+	</div>
+</header>
+
+<main class="workspace">
+	<section class="radio-panel" id="radio-panel">
+		<canvas id="wf-slow" class="wf-slow" title="Slow waterfall"></canvas>
+		<div class="splitter" id="splitter" title="Drag to resize the slow waterfall"></div>
+		<canvas id="wf-scale" class="wf-scale" title="Frequency scale — click to tune, drag to scroll"></canvas>
+		<canvas id="wf-main" class="wf-main" title="Waterfall — click to tune"></canvas>
+		<div class="wf-overlay">
+			<button id="btn-page" class="page-btn" type="button"
+				title="Left click = PageUp, right click = PageDown">⇅</button>
+			<div class="readout">
+				<span id="readout-freq">14025.00</span>
+				<span id="readout-bw">500 Hz</span>
+				<span id="readout-state" class="state-rx">RX</span>
+			</div>
+		</div>
+	</section>
+
+	<aside class="control-panel">
+		<label class="call-label" for="call-input">Callsign</label>
+		<input id="call-input" class="call-input" type="text" autocomplete="off"
+			spellcheck="false" maxlength="12" placeholder="…">
+
+		<div class="msg-grid" id="msg-grid">
+			<button type="button" data-key="F1"><kbd>F1</kbd><span>QRZ</span></button>
+			<button type="button" data-key="F2"><kbd>F2</kbd><span>5NN</span></button>
+			<button type="button" data-key="F3"><kbd>F3</kbd><span>TU UP</span></button>
+			<button type="button" data-key="F4"><kbd>F4</kbd><span>My Call</span></button>
+			<button type="button" data-key="F5"><kbd>F5</kbd><span>His Call</span></button>
+			<button type="button" data-key="F6"><kbd>F6</kbd><span>NIL</span></button>
+			<button type="button" data-key="F7"><kbd>F7</kbd><span>AGN</span></button>
+			<button type="button" id="btn-save"><kbd>↵</kbd><span>Save</span></button>
+		</div>
+
+		<div class="log" id="log-panel">
+			<table>
+				<thead>
+					<tr><th>Time</th><th>Call</th><th>Freq</th><th>C</th><th>SNR</th><th></th></tr>
+				</thead>
+				<tbody id="log-body"></tbody>
+			</table>
+		</div>
+
+		<p class="hint">
+			<kbd>\</kbd> QRZ · <kbd>;</kbd> his call + 5NN · <kbd>.</kbd> TU UP + log<br>
+			<kbd>PgUp</kbd>/<kbd>PgDn</kbd> scroll · <kbd>↑</kbd>/<kbd>↓</kbd> bandwidth · <kbd>Esc</kbd> abort
+		</p>
+	</aside>
+</main>
+
+<dialog id="dlg-pileup">
+	<form method="dialog" id="form-pileup">
+		<h2>Pileup Settings</h2>
+		<div class="grid">
+			<label>DX-pedition callsign<input name="dxCall" type="text" required maxlength="12"></label>
+			<label>Operator's callsign<input name="opCall" type="text" maxlength="12"></label>
+			<label>Number of callers
+				<input name="callers" type="number" min="1" max="1000" list="caller-presets" required>
+				<datalist id="caller-presets">
+					<option value="10"></option><option value="30"></option>
+					<option value="100"></option><option value="300"></option><option value="1000"></option>
+				</datalist>
+			</label>
+			<label>Average SNR, dB<input name="snrDb" type="number" min="3" max="30" required></label>
+			<label>Difficult continent
+				<select name="difficult">
+					<option value="AS">AS</option><option value="EU">EU</option><option value="NA">NA</option>
+				</select>
+			</label>
+			<label>Session length, min<input name="minutes" type="number" min="1" max="120" required></label>
+		</div>
+		<fieldset class="modes">
+			<legend>Mode</legend>
+			<label><input type="radio" name="mode" value="practice"> Practice</label>
+			<label><input type="radio" name="mode" value="competition"> Competition <small>(100 callers, 15 dB, 15 min)</small></label>
+		</fieldset>
+		<menu>
+			<button value="cancel" type="submit" class="ghost">Cancel</button>
+			<button value="ok" type="submit" class="primary">Start</button>
+		</menu>
+	</form>
+</dialog>
+
+<dialog id="dlg-radio">
+	<form method="dialog" id="form-radio">
+		<h2>Radio &amp; Keyer</h2>
+		<div class="grid">
+			<label>CW pitch, Hz<input name="pitch" type="range" min="300" max="1000" step="10"><output></output></label>
+			<label>Filter bandwidth, Hz<input name="bandwidth" type="range" min="100" max="3000" step="50"><output></output></label>
+			<label>AF gain<input name="afGain" type="range" min="0" max="1" step="0.01"><output></output></label>
+			<label>Sidetone gain<input name="sidetoneGain" type="range" min="0" max="1" step="0.01"><output></output></label>
+			<label>Keyer speed, WPM<input name="wpm" type="range" min="15" max="45" step="1"><output></output></label>
+			<label>Auto DX call every N-th QSO<input name="autoDxCallEvery" type="number" min="1" max="10"></label>
+		</div>
+		<label class="check"><input type="checkbox" name="esm"> ESM — Enter Sends Message</label>
+		<menu><button value="ok" type="submit" class="primary">Close</button></menu>
+	</form>
+</dialog>
+
+<dialog id="dlg-results">
+	<h2>Session Result</h2>
+	<div id="results-body"></div>
+	<menu>
+		<button type="button" id="btn-adif" class="ghost">Download ADIF</button>
+		<button type="button" id="btn-history" class="ghost">Download history</button>
+		<button type="button" id="btn-results-close" class="primary">Close</button>
+	</menu>
+</dialog>
+
+<script id="pileup-processor-src" type="text/worklet-source">
+// AudioWorklet processor: synthesises the pileup as a complex I/Q stream, then
+// receives it through a real DSP chain (tune -> decimate -> filter -> AGC).
+// Self-contained: AudioWorklet global scope has no module imports.
+
+const SAMPLE_RATE = 48000;
+const FFT_SIZE = 2048;
+const HOP = 480;
+const DECIM = 4;
+const NOISE_SIGMA = 0.01;
+const REF_BW = 500; // SNR reference bandwidth
+const MAX_ACTIVE_TX = 256;
+const ENV_TAU = 0.0015; // key envelope time constant (click shaping)
+const TX_BURST_GAP = 0.8; // messages closer than this stay one transmission
+
+/* ---------- FFT ---------- */
+
+class FFT {
+  constructor(n) {
+    this.n = n;
+    this.cos = new Float32Array(n / 2);
+    this.sin = new Float32Array(n / 2);
+    for (let i = 0; i < n / 2; i++) {
+      this.cos[i] = Math.cos((-2 * Math.PI * i) / n);
+      this.sin[i] = Math.sin((-2 * Math.PI * i) / n);
+    }
+    this.rev = new Uint16Array(n);
+    const bits = Math.log2(n);
+    for (let i = 0; i < n; i++) {
+      let x = i;
+      let r = 0;
+      for (let b = 0; b < bits; b++) {
+        r = (r << 1) | (x & 1);
+        x >>= 1;
+      }
+      this.rev[i] = r;
+    }
+  }
+
+  transform(re, im) {
+    const { n, rev, cos, sin } = this;
+    for (let i = 0; i < n; i++) {
+      const j = rev[i];
+      if (j > i) {
+        let t = re[i]; re[i] = re[j]; re[j] = t;
+        t = im[i]; im[i] = im[j]; im[j] = t;
+      }
+    }
+    for (let size = 2; size <= n; size <<= 1) {
+      const half = size >> 1;
+      const step = n / size;
+      for (let i = 0; i < n; i += size) {
+        for (let j = i, k = 0; j < i + half; j++, k += step) {
+          const c = cos[k];
+          const s = sin[k];
+          const tr = re[j + half] * c - im[j + half] * s;
+          const ti = re[j + half] * s + im[j + half] * c;
+          re[j + half] = re[j] - tr;
+          im[j + half] = im[j] - ti;
+          re[j] += tr;
+          im[j] += ti;
+        }
+      }
+    }
+  }
+}
+
+/* ---------- FIR design ---------- */
+
+function designLowpass(numTaps, cutoffNorm) {
+  const h = new Float32Array(numTaps);
+  const m = (numTaps - 1) / 2;
+  let sum = 0;
+  for (let i = 0; i < numTaps; i++) {
+    const x = i - m;
+    const sinc = x === 0 ? 2 * cutoffNorm : Math.sin(2 * Math.PI * cutoffNorm * x) / (Math.PI * x);
+    const w = 0.54 - 0.46 * Math.cos((2 * Math.PI * i) / (numTaps - 1));
+    h[i] = sinc * w;
+    sum += h[i];
+  }
+  for (let i = 0; i < numTaps; i++) h[i] /= sum;
+  return h;
+}
+
+class ComplexFir {
+  constructor(taps) {
+    this.setTaps(taps);
+  }
+
+  setTaps(taps) {
+    this.h = taps;
+    const n = taps.length;
+    if (!this.bufI || this.bufI.length !== n) {
+      this.bufI = new Float32Array(n);
+      this.bufQ = new Float32Array(n);
+      this.pos = 0;
+    }
+  }
+
+  push(i, q) {
+    this.bufI[this.pos] = i;
+    this.bufQ[this.pos] = q;
+    this.pos = this.pos + 1 === this.h.length ? 0 : this.pos + 1;
+  }
+
+  // Valid only right after push(); evaluates the FIR at the current instant.
+  outI() {
+    const { h, bufI, pos } = this;
+    const n = h.length;
+    let acc = 0;
+    let k = pos;
+    for (let t = n - 1; t >= 0; t--) {
+      acc += h[t] * bufI[k];
+      k = k + 1 === n ? 0 : k + 1;
+    }
+    return acc;
+  }
+
+  outQ() {
+    const { h, bufQ, pos } = this;
+    const n = h.length;
+    let acc = 0;
+    let k = pos;
+    for (let t = n - 1; t >= 0; t--) {
+      acc += h[t] * bufQ[k];
+      k = k + 1 === n ? 0 : k + 1;
+    }
+    return acc;
+  }
+}
+
+/* ---------- Processor ---------- */
+
+class PileupProcessor extends AudioWorkletProcessor {
+  constructor() {
+    super();
+
+    this.running = false;
+    this.renormCount = 0;
+    this.slots = new Map();
+
+    this.rxFreq = 2000;
+    this.bandwidth = 500;
+    this.pitch = 600;
+    this.afGain = 0.7;
+    this.sidetoneGain = 0.35;
+
+    this.loPhaseR = 1;
+    this.loPhaseI = 0;
+    this.pitchPhaseR = 1;
+    this.pitchPhaseI = 0;
+
+    this.decFir = new ComplexFir(designLowpass(63, 2600 / SAMPLE_RATE));
+    this.decCount = 0;
+    this.chanFir = new ComplexFir(designLowpass(255, 250 / (SAMPLE_RATE / DECIM)));
+    this.updateChannelFilter();
+
+    this.prevI = 0;
+    this.prevQ = 0;
+    this.curI = 0;
+    this.curQ = 0;
+
+    this.agcEnv = 1e-4;
+    this.agcGain = 1;
+    this.rxDuck = 1;
+
+    // Transmit window. The receiver stays blanked for the whole of it,
+    // including the key-up gaps between characters.
+    this.txStart = 0;
+    this.txEnd = 0;
+    this.txWasOn = false;
+
+    this.fft = new FFT(FFT_SIZE);
+    this.fftRe = new Float32Array(FFT_SIZE);
+    this.fftIm = new Float32Array(FFT_SIZE);
+    this.ringI = new Float32Array(FFT_SIZE);
+    this.ringQ = new Float32Array(FFT_SIZE);
+    this.ringPos = 0;
+    this.sinceHop = 0;
+    this.window = new Float32Array(FFT_SIZE);
+    for (let i = 0; i < FFT_SIZE; i++) {
+      this.window[i] = 0.5 - 0.5 * Math.cos((2 * Math.PI * i) / (FFT_SIZE - 1));
+    }
+    this.noiseFloorDb = -60;
+
+    this.gaussSpare = null;
+
+    this.port.onmessage = (e) => this.handle(e.data);
+  }
+
+  handle(msg) {
+    switch (msg.type) {
+      case 'run':
+        this.running = msg.value;
+        if (!msg.value) {
+          this.slots.clear();
+          this.txStart = 0;
+          this.txEnd = 0;
+          this.txWasOn = false;
+        }
+        break;
+      case 'rx':
+        if (msg.freq !== undefined) this.rxFreq = msg.freq;
+        if (msg.bandwidth !== undefined && msg.bandwidth !== this.bandwidth) {
+          this.bandwidth = msg.bandwidth;
+          this.updateChannelFilter();
+        }
+        break;
+      case 'audio':
+        if (msg.pitch !== undefined) this.pitch = msg.pitch;
+        if (msg.afGain !== undefined) this.afGain = msg.afGain;
+        if (msg.sidetoneGain !== undefined) this.sidetoneGain = msg.sidetoneGain;
+        break;
+      case 'tx':
+        if (this.slots.size < MAX_ACTIVE_TX || msg.sidetone) {
+          if (msg.sidetone) {
+            let dur = 0;
+            for (let i = 0; i < msg.durations.length; i++) dur += msg.durations[i];
+            // A message queued back-to-back extends the current transmit window.
+            if (msg.start > this.txEnd + TX_BURST_GAP) this.txStart = msg.start;
+            this.txEnd = Math.max(this.txEnd, msg.start + dur);
+          }
+          this.slots.set(msg.id, {
+            start: msg.start,
+            freq: msg.freq,
+            amp: msg.sidetone ? 1 : Math.sqrt((NOISE_SIGMA ** 2 * (REF_BW / SAMPLE_RATE)) * 10 ** (msg.snrDb / 10)),
+            durations: msg.durations,
+            sidetone: !!msg.sidetone,
+            idx: 0,
+            boundary: msg.durations.length ? msg.durations[0] : 0,
+            elapsed: 0,
+            env: 0,
+            pr: 1,
+            pi: 0,
+          });
+        }
+        break;
+      case 'cancel':
+        this.slots.delete(msg.id);
+        break;
+      case 'cancelAll':
+        for (const [id, s] of this.slots) if (s.sidetone === !!msg.sidetone) this.slots.delete(id);
+        if (msg.sidetone) {
+          this.txStart = 0;
+          this.txEnd = 0;
+        }
+        break;
+    }
+  }
+
+  updateChannelFilter() {
+    const cutoff = Math.max(40, this.bandwidth / 2) / (SAMPLE_RATE / DECIM);
+    this.chanFir.setTaps(designLowpass(255, Math.min(cutoff, 0.45)));
+  }
+
+  gauss() {
+    if (this.gaussSpare !== null) {
+      const v = this.gaussSpare;
+      this.gaussSpare = null;
+      return v;
+    }
+    let u;
+    let v;
+    let s;
+    do {
+      u = Math.random() * 2 - 1;
+      v = Math.random() * 2 - 1;
+      s = u * u + v * v;
+    } while (s >= 1 || s === 0);
+    const mul = Math.sqrt((-2 * Math.log(s)) / s);
+    this.gaussSpare = v * mul;
+    return u * mul;
+  }
+
+  process(_inputs, outputs) {
+    const out = outputs[0][0];
+    const n = out.length;
+
+    if (!this.running) {
+      out.fill(0);
+      return true;
+    }
+
+    const t0 = currentFrame / sampleRate;
+    const noiseScale = NOISE_SIGMA * Math.SQRT1_2;
+    const dt = 1 / SAMPLE_RATE;
+
+    // Local oscillator and pitch oscillator increments.
+    const loW = (-2 * Math.PI * this.rxFreq) / SAMPLE_RATE;
+    const loC = Math.cos(loW);
+    const loS = Math.sin(loW);
+    const pW = (2 * Math.PI * this.pitch) / SAMPLE_RATE;
+    const pC = Math.cos(pW);
+    const pS = Math.sin(pW);
+
+    const envK = 1 - Math.exp(-1 / (ENV_TAU * SAMPLE_RATE));
+
+    for (let s = 0; s < n; s++) {
+      const now = t0 + s * dt;
+      const txOn = now >= this.txStart && now < this.txEnd;
+      if (this.txWasOn && !txOn) this.port.postMessage({ type: 'txgap' });
+      this.txWasOn = txOn;
+
+      // --- synthesise the band ---
+      let bandI = this.gauss() * noiseScale;
+      let bandQ = this.gauss() * noiseScale;
+      let sidetoneSample = 0;
+
+      for (const [id, slot] of this.slots) {
+        if (now < slot.start) continue;
+
+        if (slot.idx >= slot.durations.length) {
+          if (slot.env < 1e-5) {
+            this.slots.delete(id);
+            continue;
+          }
+        } else {
+          slot.elapsed = now - slot.start;
+          while (slot.idx < slot.durations.length && slot.elapsed >= slot.boundary) {
+            slot.idx++;
+            if (slot.idx < slot.durations.length) slot.boundary += slot.durations[slot.idx];
+          }
+        }
+
+        const keyDown = slot.idx < slot.durations.length && (slot.idx & 1) === 0;
+        const target = keyDown ? 1 : 0;
+        slot.env += (target - slot.env) * envK;
+
+        if (slot.env < 1e-5 && !target) {
+          slot.pr = 1;
+          slot.pi = 0;
+          continue;
+        }
+
+        if (slot.sidetone) {
+          const w = (2 * Math.PI * this.pitch) / SAMPLE_RATE;
+          const c = Math.cos(w);
+          const sn = Math.sin(w);
+          const nr = slot.pr * c - slot.pi * sn;
+          slot.pi = slot.pr * sn + slot.pi * c;
+          slot.pr = nr;
+          sidetoneSample += slot.env * slot.pr;
+        } else {
+          if (slot.c === undefined || slot.wCached !== slot.freq) {
+            const w = (2 * Math.PI * slot.freq) / SAMPLE_RATE;
+            slot.c = Math.cos(w);
+            slot.s = Math.sin(w);
+            slot.wCached = slot.freq;
+          }
+          const nr = slot.pr * slot.c - slot.pi * slot.s;
+          slot.pi = slot.pr * slot.s + slot.pi * slot.c;
+          slot.pr = nr;
+          const a = slot.amp * slot.env;
+          bandI += a * slot.pr;
+          bandQ += a * slot.pi;
+        }
+      }
+
+      // --- waterfall tap (pre-tuning, full band) ---
+      this.ringI[this.ringPos] = bandI;
+      this.ringQ[this.ringPos] = bandQ;
+      this.ringPos = this.ringPos + 1 === FFT_SIZE ? 0 : this.ringPos + 1;
+      if (++this.sinceHop >= HOP) {
+        this.sinceHop = 0;
+        this.emitSpectrum(now, txOn);
+      }
+
+      // --- tune to RX frequency ---
+      const nlr = this.loPhaseR * loC - this.loPhaseI * loS;
+      this.loPhaseI = this.loPhaseR * loS + this.loPhaseI * loC;
+      this.loPhaseR = nlr;
+      const mixI = bandI * this.loPhaseR - bandQ * this.loPhaseI;
+      const mixQ = bandI * this.loPhaseI + bandQ * this.loPhaseR;
+
+      // --- decimating anti-alias FIR ---
+      this.decFir.push(mixI, mixQ);
+      if (++this.decCount >= DECIM) {
+        this.decCount = 0;
+        this.chanFir.push(this.decFir.outI(), this.decFir.outQ());
+        this.prevI = this.curI;
+        this.prevQ = this.curQ;
+        this.curI = this.chanFir.outI();
+        this.curQ = this.chanFir.outQ();
+      }
+
+      // --- linear interpolation back to 48 kHz ---
+      const frac = (this.decCount + 1) / DECIM;
+      const zi = this.prevI + (this.curI - this.prevI) * frac;
+      const zq = this.prevQ + (this.curQ - this.prevQ) * frac;
+
+      // --- shift to CW pitch, take the real part ---
+      const npr = this.pitchPhaseR * pC - this.pitchPhaseI * pS;
+      this.pitchPhaseI = this.pitchPhaseR * pS + this.pitchPhaseI * pC;
+      this.pitchPhaseR = npr;
+      let audio = zi * this.pitchPhaseR - zq * this.pitchPhaseI;
+
+      // --- AGC ---
+      const mag = Math.abs(audio);
+      if (mag > this.agcEnv) this.agcEnv += (mag - this.agcEnv) * 0.01;
+      else this.agcEnv += (mag - this.agcEnv) * 0.0002;
+      const wanted = 0.25 / (this.agcEnv + 1e-7);
+      this.agcGain += (Math.min(wanted, 4000) - this.agcGain) * 0.002;
+      audio *= this.agcGain;
+
+      // The receiver is deaf while the operator transmits.
+      this.rxDuck += ((txOn ? 0 : 1) - this.rxDuck) * (txOn ? 0.02 : 0.004);
+
+      out[s] = Math.max(-1, Math.min(1,
+        audio * this.afGain * this.rxDuck + sidetoneSample * this.sidetoneGain));
+    }
+
+    // Keep the incremental rotators on the unit circle.
+    if ((this.renormCount += n) >= SAMPLE_RATE) {
+      this.renormCount = 0;
+      let m = Math.hypot(this.loPhaseR, this.loPhaseI) || 1;
+      this.loPhaseR /= m; this.loPhaseI /= m;
+      m = Math.hypot(this.pitchPhaseR, this.pitchPhaseI) || 1;
+      this.pitchPhaseR /= m; this.pitchPhaseI /= m;
+      for (const slot of this.slots.values()) {
+        m = Math.hypot(slot.pr, slot.pi) || 1;
+        slot.pr /= m; slot.pi /= m;
+      }
+    }
+
+    return true;
+  }
+
+  emitSpectrum(now, txOn) {
+    // Deaf while transmitting: no columns at all, so the waterfall holds instead of scrolling.
+    if (txOn) return;
+
+    const { fftRe, fftIm, ringI, ringQ, ringPos, window } = this;
+    for (let i = 0; i < FFT_SIZE; i++) {
+      const k = (ringPos + i) % FFT_SIZE;
+      const w = window[i];
+      fftRe[i] = ringI[k] * w;
+      fftIm[i] = ringQ[k] * w;
+    }
+    this.fft.transform(fftRe, fftIm);
+
+    // fftshift into ascending frequency order, scale to 8-bit dB.
+    const bins = new Uint8Array(FFT_SIZE);
+    const half = FFT_SIZE / 2;
+    const db = new Float32Array(FFT_SIZE);
+    let lo = Infinity;
+    let hi = -Infinity;
+    for (let i = 0; i < FFT_SIZE; i++) {
+      const src = i < half ? i + half : i - half;
+      const p = fftRe[src] * fftRe[src] + fftIm[src] * fftIm[src];
+      const d = 10 * Math.log10(p + 1e-20);
+      db[i] = d;
+      if (d < lo) lo = d;
+      if (d > hi) hi = d;
+    }
+
+    // The noise floor is the 15th percentile: a crowded band must not pull it up.
+    const nb = 64;
+    const hist = this.hist || (this.hist = new Uint16Array(nb));
+    hist.fill(0);
+    const span = Math.max(1e-6, hi - lo);
+    for (let i = 0; i < FFT_SIZE; i++) {
+      let k = ((db[i] - lo) / span) * (nb - 1);
+      hist[k < 0 ? 0 : k > nb - 1 ? nb - 1 : k | 0]++;
+    }
+    const want = FFT_SIZE * 0.15;
+    let acc = 0;
+    let pct = 0;
+    for (let k = 0; k < nb; k++) {
+      acc += hist[k];
+      if (acc >= want) { pct = k; break; }
+    }
+    const floorEstimate = lo + (pct / (nb - 1)) * span;
+    this.noiseFloorDb += (floorEstimate - this.noiseFloorDb) * 0.05;
+
+    const floor = this.noiseFloorDb - 3;
+    const range = 40;
+    for (let i = 0; i < FFT_SIZE; i++) {
+      const v = ((db[i] - floor) / range) * 255;
+      bins[i] = v < 0 ? 0 : v > 255 ? 255 : v | 0;
+    }
+    this.port.postMessage({ type: 'spectrum', t: now, bins }, [bins.buffer]);
+  }
+}
+
+registerProcessor('pileup-processor', PileupProcessor);
+</script>
+
+<script>
+(() => {
+let __workletUrl = null;
+function workletUrl() {
+  // A data: URL rather than a Blob: blob:null URLs are refused on file:// pages.
+  if (!__workletUrl) {
+    const src = document.getElementById('pileup-processor-src').textContent;
+    __workletUrl = 'data:text/javascript;charset=utf-8,' + encodeURIComponent(src);
+  }
+  return __workletUrl;
+}
+const __mod = Object.create(null);
+
+__mod["js/lib/config.js"] = (() => {
+  // Shared constants. Frequencies are expressed as signed Hz offsets from BAND_CENTER_HZ.
+
+  const SAMPLE_RATE = 48000;
+  const SPAN_HZ = SAMPLE_RATE; // complex I/Q -> 48 kHz of spectrum
+  const BAND_CENTER_HZ = 14024000;
+
+  const FFT_SIZE = 2048;
+  const BIN_HZ = SPAN_HZ / FFT_SIZE; // 23.4375 Hz
+  const HOP = 480; // 10 ms -> 100 waterfall columns/s
+  const SLOW_DECIM = 25; // 4 columns/s on the slow waterfall
+
+  const DECIM = 4;
+  const RATE2 = SAMPLE_RATE / DECIM;
+
+  const TX_OFFSET_HZ = 1000; // operator transmit frequency
+  const PILEUP_START_HZ = TX_OFFSET_HZ + 1000; // pileup starts 1 kHz above TX
+  const PILEUP_SPREAD_HZ = 9000;
+
+  const QSY_CLEAR_THRESHOLD_HZ = 300; // >300 Hz QSY clears the callsign box
+
+  const MIN_BW = 100;
+  const MAX_BW = 3000;
+
+  const DIFFICULT_ALWAYS = ['SA', 'AF', 'OC'];
+
+  const COMPETITION = Object.freeze({
+    callers: 100,
+    snrDb: 15,
+    minutes: 15,
+  });
+
+  const DEFAULT_SETTINGS = Object.freeze({
+    dxCall: 'LA2T',
+    opCall: '',
+    callers: 100,
+    snrDb: 15,
+    difficult: 'EU',
+    minutes: 15,
+    mode: 'practice',
+    pitch: 600,
+    bandwidth: 500,
+    afGain: 0.7,
+    sidetoneGain: 0.35,
+    wpm: 30,
+    esm: false,
+    autoDxCallEvery: 4,
+    messages: {
+      F1: 'QRZ DE <my_call> UP',
+      F2: '5NN',
+      F3: 'TU UP',
+      F4: '<my_call>',
+      F5: '<his_call>',
+      F6: 'NIL',
+      F7: 'AGN',
+    },
+  });
+  return { SAMPLE_RATE, SPAN_HZ, BAND_CENTER_HZ, FFT_SIZE, BIN_HZ, HOP, SLOW_DECIM, DECIM, RATE2, TX_OFFSET_HZ, PILEUP_START_HZ, PILEUP_SPREAD_HZ, QSY_CLEAR_THRESHOLD_HZ, MIN_BW, MAX_BW, DIFFICULT_ALWAYS, COMPETITION, DEFAULT_SETTINGS };
+})();
+
+__mod["js/lib/callsigns.js"] = (() => {
+  // Generates synthetic but structurally valid amateur callsigns.
+  // Format: <prefix><digit><suffix>, prefix being 1-2 letters or digit+letter,
+  // suffix 1-3 letters. Prefix blocks are real ITU allocations so that the
+  // prefix -> continent mapping behaves the way an operator would expect, but
+  // every generated call is made up.
+
+  const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+
+  // [prefix, continent, weight, digits]
+  const BLOCKS = [
+    // Europe
+    ['G', 'EU', 9, '01234568'], ['M', 'EU', 6, '0136'], ['2E', 'EU', 2, '0'],
+    ['DL', 'EU', 10, '123456789'], ['DJ', 'EU', 4, '123456789'], ['DK', 'EU', 4, '123456789'],
+    ['F', 'EU', 8, '1458'], ['I', 'EU', 8, '0123456789'], ['IK', 'EU', 4, '0123456789'],
+    ['EA', 'EU', 6, '1234567'], ['ON', 'EU', 4, '4567'], ['PA', 'EU', 5, '0359'],
+    ['OK', 'EU', 5, '12'], ['OM', 'EU', 3, '0348'], ['SP', 'EU', 6, '123456789'],
+    ['S5', 'EU', 3, '013579'], ['HA', 'EU', 4, '01234567'], ['YO', 'EU', 4, '23456789'],
+    ['LZ', 'EU', 3, '123'], ['SM', 'EU', 4, '0123567'], ['LA', 'EU', 4, '123456789'],
+    ['OH', 'EU', 4, '123568'], ['OZ', 'EU', 3, '1478'], ['ES', 'EU', 2, '12567'],
+    ['YL', 'EU', 2, '23'], ['LY', 'EU', 3, '2345'], ['UR', 'EU', 4, '3456789'],
+    ['UT', 'EU', 3, '0123457'], ['EW', 'EU', 2, '1234678'], ['RA', 'EU', 6, '134567'],
+    ['UA', 'EU', 5, '13467'], ['9A', 'EU', 3, '23456'], ['SV', 'EU', 3, '12345789'],
+    ['HB', 'EU', 3, '9'], ['OE', 'EU', 3, '123568'], ['EI', 'EU', 2, '23456789'],
+    ['CT', 'EU', 2, '12457'], ['Z3', 'EU', 1, '25'], ['E7', 'EU', 1, '1256'],
+    ['LX', 'EU', 1, '12'], ['OK', 'EU', 2, '2'],
+
+    // North America
+    ['K', 'NA', 10, '0123456789'], ['W', 'NA', 9, '0123456789'], ['N', 'NA', 8, '0123456789'],
+    ['AA', 'NA', 3, '0123456789'], ['KB', 'NA', 4, '0123456789'], ['KC', 'NA', 4, '0123456789'],
+    ['WA', 'NA', 3, '0123456789'], ['NW', 'NA', 2, '0123456789'], ['AB', 'NA', 2, '0123456789'],
+    ['VE', 'NA', 5, '1234567890'], ['VA', 'NA', 2, '234567'], ['XE', 'NA', 2, '123'],
+    ['KP', 'NA', 1, '4'], ['TI', 'NA', 1, '258'], ['HI', 'NA', 1, '38'],
+
+    // Asia
+    ['JA', 'AS', 8, '0123456789'], ['JH', 'AS', 4, '0123456789'], ['JE', 'AS', 3, '0123456789'],
+    ['JF', 'AS', 2, '0123456789'], ['BG', 'AS', 5, '1234567890'], ['BH', 'AS', 4, '1234567'],
+    ['BD', 'AS', 4, '1234567'], ['BY', 'AS', 2, '1234567'], ['BV', 'AS', 1, '0123'],
+    ['HL', 'AS', 3, '12345'], ['DS', 'AS', 2, '12345'], ['VU', 'AS', 3, '2345678'],
+    ['HS', 'AS', 2, '0123456789'], ['9V', 'AS', 1, '1'], ['4X', 'AS', 2, '146'],
+    ['A7', 'AS', 1, '1'], ['A6', 'AS', 1, '1'], ['EX', 'AS', 1, '28'],
+    ['UN', 'AS', 2, '6789'], ['RA', 'AS', 3, '09'], ['UA', 'AS', 2, '09'],
+    ['JT', 'AS', 1, '1'], ['XV', 'AS', 1, '19'], ['YC', 'AS', 1, '0123'],
+
+    // South America
+    ['PY', 'SA', 5, '1234567'], ['PP', 'SA', 2, '125'], ['PU', 'SA', 2, '1234567'],
+    ['LU', 'SA', 4, '1234567890'], ['CE', 'SA', 3, '1234567'], ['CX', 'SA', 2, '1234789'],
+    ['HK', 'SA', 2, '1345'], ['YV', 'SA', 2, '1456'], ['OA', 'SA', 1, '148'],
+    ['CP', 'SA', 1, '146'], ['HC', 'SA', 1, '128'], ['ZP', 'SA', 1, '569'],
+
+    // Africa
+    ['ZS', 'AF', 3, '12456'], ['5Z', 'AF', 1, '4'], ['9J', 'AF', 1, '2'],
+    ['TR', 'AF', 1, '8'], ['TU', 'AF', 1, '2'], ['5N', 'AF', 1, '0'],
+    ['SU', 'AF', 1, '1'], ['CN', 'AF', 1, '28'], ['7X', 'AF', 1, '2'],
+    ['ST', 'AF', 1, '2'], ['3B', 'AF', 1, '8'], ['FR', 'AF', 1, '5'],
+    ['V5', 'AF', 1, '1'], ['Z2', 'AF', 1, '1'], ['5H', 'AF', 1, '3'],
+
+    // Oceania
+    ['VK', 'OC', 4, '12345678'], ['ZL', 'OC', 3, '1234'], ['KH', 'OC', 1, '6'],
+    ['YB', 'OC', 3, '0123456789'], ['YD', 'OC', 2, '0123456'], ['DU', 'OC', 2, '1234567'],
+    ['3D', 'OC', 1, '2'], ['FK', 'OC', 1, '8'], ['FO', 'OC', 1, '5'],
+    ['P2', 'OC', 1, '9'], ['E5', 'OC', 1, '1'], ['5W', 'OC', 1, '1'],
+  ];
+
+  const TOTAL_WEIGHT = BLOCKS.reduce((s, b) => s + b[2], 0);
+
+  function pick(str) {
+    return str[(Math.random() * str.length) | 0];
+  }
+
+  function randomSuffix() {
+    const r = Math.random();
+    const len = r < 0.12 ? 1 : r < 0.55 ? 2 : 3;
+    let s = '';
+    for (let i = 0; i < len; i++) s += pick(LETTERS);
+    return s;
+  }
+
+  function pickBlock() {
+    let r = Math.random() * TOTAL_WEIGHT;
+    for (const b of BLOCKS) {
+      r -= b[2];
+      if (r <= 0) return b;
+    }
+    return BLOCKS[0];
+  }
+
+  /** Generates `count` unique callsigns as `{ call, continent }`. */
+  function generateCallsigns(count) {
+    const seen = new Set();
+    const out = [];
+    let guard = 0;
+    while (out.length < count && guard++ < count * 200) {
+      const [prefix, continent, , digits] = pickBlock();
+      const call = `${prefix}${pick(digits)}${randomSuffix()}`;
+      if (seen.has(call)) continue;
+      seen.add(call);
+      out.push({ call, continent });
+    }
+    return out;
+  }
+
+  /** Levenshtein distance, used to detect "nearly right" callsigns. */
+  function editDistance(a, b) {
+    if (a === b) return 0;
+    const m = a.length;
+    const n = b.length;
+    if (!m) return n;
+    if (!n) return m;
+    let prev = new Array(n + 1);
+    let cur = new Array(n + 1);
+    for (let j = 0; j <= n; j++) prev[j] = j;
+    for (let i = 1; i <= m; i++) {
+      cur[0] = i;
+      for (let j = 1; j <= n; j++) {
+        const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+        cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + cost);
+      }
+      [prev, cur] = [cur, prev];
+    }
+    return prev[n];
+  }
+  return { generateCallsigns, editDistance };
+})();
+
+__mod["js/lib/morse.js"] = (() => {
+  const TABLE = {
+    A: '.-', B: '-...', C: '-.-.', D: '-..', E: '.', F: '..-.', G: '--.',
+    H: '....', I: '..', J: '.---', K: '-.-', L: '.-..', M: '--', N: '-.',
+    O: '---', P: '.--.', Q: '--.-', R: '.-.', S: '...', T: '-', U: '..-',
+    V: '...-', W: '.--', X: '-..-', Y: '-.--', Z: '--..',
+    0: '-----', 1: '.----', 2: '..---', 3: '...--', 4: '....-',
+    5: '.....', 6: '-....', 7: '--...', 8: '---..', 9: '----.',
+    '/': '-..-.', '?': '..--..', '=': '-...-', '+': '.-.-.', '.': '.-.-.-',
+    ',': '--..--', "'": '.----.',
+  };
+
+  function isSendable(ch) {
+    return ch === ' ' || Object.prototype.hasOwnProperty.call(TABLE, ch.toUpperCase());
+  }
+
+  /**
+   * Expands text into an alternating key-down/key-up duration list (seconds),
+   * always starting with a key-down element.
+   * `jitter` adds per-element human timing sloppiness (0 = perfect machine keying).
+   */
+  function morseDurations(text, wpm, jitter = 0) {
+    const dit = 1.2 / wpm;
+    const seq = [];
+
+    for (const raw of text.toUpperCase()) {
+      if (raw === ' ') {
+        seq.push({ on: false, dur: 7 * dit });
+        continue;
+      }
+      const code = TABLE[raw];
+      if (!code) continue;
+      for (const el of code) {
+        seq.push({ on: true, dur: (el === '-' ? 3 : 1) * dit });
+        seq.push({ on: false, dur: dit });
+      }
+      seq[seq.length - 1].dur = 3 * dit;
+    }
+    if (!seq.length) return new Float32Array(0);
+
+    const merged = [];
+    for (const s of seq) {
+      const last = merged[merged.length - 1];
+      if (last && last.on === s.on) last.dur += s.dur;
+      else merged.push({ on: s.on, dur: s.dur });
+    }
+    while (merged.length && !merged[merged.length - 1].on) merged.pop();
+
+    const durations = [];
+    let expectOn = true;
+    for (const s of merged) {
+      if (s.on !== expectOn) {
+        durations.push(0);
+        expectOn = !expectOn;
+      }
+      const f = jitter ? 1 + (Math.random() * 2 - 1) * jitter : 1;
+      durations.push(s.dur * f);
+      expectOn = !expectOn;
+    }
+    return Float32Array.from(durations);
+  }
+
+  function totalDuration(durations) {
+    let t = 0;
+    for (let i = 0; i < durations.length; i++) t += durations[i];
+    return t;
+  }
+  return { isSendable, morseDurations, totalDuration };
+})();
+
+__mod["js/lib/adif.js"] = (() => {
+  const { BAND_CENTER_HZ } = __mod["js/lib/config.js"];
+
+  function field(name, value) {
+    const v = value == null ? '' : String(value);
+    return `<${name}:${v.length}>${v}`;
+  }
+
+  function stamp(date) {
+    const p = (n, w = 2) => String(n).padStart(w, '0');
+    return {
+      date: `${date.getUTCFullYear()}${p(date.getUTCMonth() + 1)}${p(date.getUTCDate())}`,
+      time: `${p(date.getUTCHours())}${p(date.getUTCMinutes())}${p(date.getUTCSeconds())}`,
+    };
+  }
+
+  function toAdif(session, wallStart) {
+    const lines = [
+      'Pileup Runner Web session log',
+      field('ADIF_VER', '3.1.4'),
+      field('PROGRAMID', 'PileupRunnerWeb'),
+      '<EOH>',
+      '',
+    ];
+
+    for (const q of session.log) {
+      const when = new Date(wallStart + (q.at - session.startTime) * 1000);
+      const { date, time } = stamp(when);
+      const mhz = ((BAND_CENTER_HZ + q.freq) / 1e6).toFixed(6);
+      lines.push([
+        field('CALL', q.correct || q.call),
+        field('QSO_DATE', date),
+        field('TIME_ON', time),
+        field('BAND', '20m'),
+        field('FREQ', mhz),
+        field('MODE', 'CW'),
+        field('RST_SENT', '599'),
+        field('RST_RCVD', '599'),
+        field('CONT', q.continent),
+        field('STATION_CALLSIGN', session.settings.dxCall),
+        field('OPERATOR', session.settings.opCall),
+        field('COMMENT', `status=${q.status.trim() || 'none'} pts=${q.points} snr=${q.snr}dB`),
+        '<EOR>',
+      ].join(' '));
+    }
+
+    return lines.join('\n');
+  }
+
+  function downloadText(filename, text) {
+    const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+  return { toAdif, downloadText };
+})();
+
+__mod["js/audio/radio.js"] = (() => {
+  const { SAMPLE_RATE } = __mod["js/lib/config.js"];
+
+  let nextTxId = 1;
+
+  /** Main-thread facade over the AudioWorklet DSP core. */
+  class Radio {
+    constructor() {
+      this.ctx = null;
+      this.node = null;
+      this.onSpectrum = null;
+      this.onTxGap = null;
+      this.ready = false;
+    }
+
+    async init() {
+      if (this.ready) return;
+      this.ctx = new AudioContext({ sampleRate: SAMPLE_RATE, latencyHint: 'interactive' });
+      if (this.ctx.sampleRate !== SAMPLE_RATE) {
+        console.warn(`Audio device runs at ${this.ctx.sampleRate} Hz; timing assumes ${SAMPLE_RATE} Hz.`);
+      }
+      await this.ctx.audioWorklet.addModule(workletUrl());
+      this.node = new AudioWorkletNode(this.ctx, 'pileup-processor', {
+        numberOfInputs: 0,
+        numberOfOutputs: 1,
+        outputChannelCount: [1],
+      });
+      this.node.port.onmessage = (e) => {
+        if (e.data.type === 'spectrum' && this.onSpectrum) this.onSpectrum(e.data);
+        else if (e.data.type === 'txgap' && this.onTxGap) this.onTxGap();
+      };
+      this.node.connect(this.ctx.destination);
+      this.ready = true;
+    }
+
+    async resume() {
+      if (this.ctx && this.ctx.state !== 'running') await this.ctx.resume();
+    }
+
+    get time() {
+      return this.ctx ? this.ctx.currentTime : 0;
+    }
+
+    post(msg, transfer) {
+      if (this.node) this.node.port.postMessage(msg, transfer || []);
+    }
+
+    setRunning(value) {
+      this.post({ type: 'run', value });
+    }
+
+    setRx(freq, bandwidth) {
+      this.post({ type: 'rx', freq, bandwidth });
+    }
+
+    setAudio(opts) {
+      this.post({ type: 'audio', ...opts });
+    }
+
+    /** Schedules a caller's transmission. Returns the slot id. */
+    transmit({ start, freq, snrDb, durations }) {
+      const id = nextTxId++;
+      const d = durations.slice();
+      this.post({ type: 'tx', id, start, freq, snrDb, durations: d, sidetone: false }, [d.buffer]);
+      return id;
+    }
+
+    /** Schedules the operator's own keying (sidetone only). */
+    keyOperator({ start, durations }) {
+      const id = nextTxId++;
+      const d = durations.slice();
+      this.post({ type: 'tx', id, start, freq: 0, snrDb: 0, durations: d, sidetone: true }, [d.buffer]);
+      return id;
+    }
+
+    cancel(id) {
+      this.post({ type: 'cancel', id });
+    }
+
+    cancelOperator() {
+      this.post({ type: 'cancelAll', sidetone: true });
+    }
+  }
+  return { Radio };
+})();
+
+__mod["js/engine/session.js"] = (() => {
+  const {
+    PILEUP_START_HZ, PILEUP_SPREAD_HZ, DIFFICULT_ALWAYS, COMPETITION,
+  } = __mod["js/lib/config.js"];
+  const { generateCallsigns, editDistance } = __mod["js/lib/callsigns.js"];
+  const { morseDurations, totalDuration } = __mod["js/lib/morse.js"];
+
+  const SKILL_BLIND = 0;
+  const SKILL_MONITOR = 1;
+  const SKILL_EXPERT = 2;
+
+  // How long a station waits for his report before he resumes calling.
+  const STANDBY_PATIENCE = 10;
+
+  // Pause between two messages keyed back to back, in dit lengths.
+  const MESSAGE_GAP_DITS = 7;
+
+  // Chance of miscopying his own call even with a clear shot at it.
+  const BASE_COPY_ERROR = 0.08;
+
+  // How long a caller listens between his own transmissions.
+  const CALL_GAP_MIN = 1.2;
+  const CALL_GAP_MAX = 4.5;
+
+  const CALL_RE = /^[A-Z0-9]{1,3}\d[A-Z]{1,4}$/;
+
+  function randn() {
+    let u = 0;
+    let v = 0;
+    while (u === 0) u = Math.random();
+    while (v === 0) v = Math.random();
+    return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+  }
+
+  function rand(a, b) {
+    return a + Math.random() * (b - a);
+  }
+
+  function pickOne(arr) {
+    return arr[(Math.random() * arr.length) | 0];
+  }
+
+  function extractCalls(text) {
+    return text.toUpperCase().split(/[\s+]+/).filter((t) => CALL_RE.test(t));
+  }
+
+  class Session {
+    constructor(radio, settings) {
+      this.radio = radio;
+      this.settings = { ...settings };
+
+      if (this.settings.mode === 'competition') {
+        Object.assign(this.settings, COMPETITION);
+      }
+
+      this.callers = [];
+      this.log = [];
+      this.score = 0;
+      this.startTime = 0;
+      this.endTime = 0;
+      this.running = false;
+      this.paused = false;
+
+      this.opTxEnd = 0;
+      this.opTxId = null;
+      this.pendingReactions = [];
+      this.addressed = null;
+      this.worked = null;
+      this.finalSent = false;
+      this.qsoCount = 0;
+      this.rxFreq = PILEUP_START_HZ + 500;
+
+      this.onLogChange = null;
+      this.onEnd = null;
+    }
+
+    get difficultSet() {
+      return new Set([...DIFFICULT_ALWAYS, this.settings.difficult]);
+    }
+
+    start(now) {
+      const difficult = this.difficultSet;
+      const list = generateCallsigns(this.settings.callers);
+      this.callers = list.map(({ call, continent }) => {
+        const hard = difficult.has(continent);
+        const r = Math.random();
+        const skill = r < 0.55 ? SKILL_BLIND : r < 0.85 ? SKILL_MONITOR : SKILL_EXPERT;
+        return {
+          call,
+          continent,
+          points: hard ? 3 : 1,
+          freq: PILEUP_START_HZ + PILEUP_SPREAD_HZ * Math.random() ** 1.6,
+          snrDb: Math.max(0, Math.min(40, this.settings.snrDb + randn() * 5 - (hard ? 4 : 0))),
+          wpm: Math.round(rand(18, 38)),
+          skill,
+          state: 'calling',
+          nextCallTime: now + rand(0.2, 4),
+          callsSinceMove: 0,
+          standbyUntil: 0,
+          loggedAs: null,
+          txId: null,
+          txStart: 0,
+          txEnd: 0,
+          justMissed: false,
+          polite: Math.random() > 0.1,
+        };
+      });
+
+      this.log = [];
+      this.score = 0;
+      this.qsoCount = 0;
+      this.worked = null;
+      this.addressed = null;
+      this.pendingReactions = [];
+      this.opTxEnd = 0;
+      this.startTime = now;
+      this.endTime = now + this.settings.minutes * 60;
+      this.running = true;
+      this.paused = false;
+    }
+
+    stop() {
+      this.running = false;
+      for (const c of this.callers) if (c.txId) this.radio.cancel(c.txId);
+      this.callers = [];
+    }
+
+    remaining(now) {
+      return Math.max(0, this.endTime - now);
+    }
+
+    /* ---------- operator transmissions ---------- */
+
+    /** Keys the operator's sidetone and queues the pileup's reaction. */
+    sendText(text, now) {
+      if (!this.running || this.paused || !text) return 0;
+      const durations = morseDurations(text, this.settings.wpm);
+      const dur = totalDuration(durations);
+      const gap = MESSAGE_GAP_DITS * (1.2 / this.settings.wpm);
+      const start = this.opTxEnd > now ? this.opTxEnd + gap : now + 0.05;
+      this.radio.keyOperator({ start, durations });
+      this.opTxEnd = start + dur;
+      this.pendingReactions.push({ text: text.toUpperCase(), at: this.opTxEnd, from: start });
+      // The correspondent only logs the QSO if he had finished his exchange
+      // before the final TU was keyed.
+      if (/\bTU\b/.test(text.toUpperCase()) && this.worked && this.worked.state === 'waiting_tu') {
+        this.finalSent = true;
+      }
+      return this.opTxEnd - now;
+    }
+
+    abortTx() {
+      this.radio.cancelOperator();
+      this.opTxEnd = 0;
+      this.pendingReactions.length = 0;
+    }
+
+    get transmitting() {
+      return this.radio.time < this.opTxEnd;
+    }
+
+    /** Applies the pileup's reaction once an operator transmission has finished. */
+    applyReaction(text, now, opStart, opEnd) {
+      const calls = extractCalls(text).filter((c) => c !== this.settings.dxCall.toUpperCase());
+      const sentCall = calls.length ? calls[calls.length - 1] : null;
+      const hasReport = /\b599\b|\b5NN\b/.test(text);
+      const isFinal = /\bTU\b/.test(text);
+
+      if (sentCall) this.addressCall(sentCall, now, opStart, opEnd);
+
+      if (hasReport) {
+        // He only comes back once he has actually been given a report.
+        if (this.worked && this.worked.state === 'standby') this.sendExchange(this.worked, now);
+
+        // Experienced callers deduce the QSX frequency from the exchange.
+        for (const c of this.callers) {
+          if (c.state === 'calling' && c.skill === SKILL_EXPERT && Math.random() < 0.5) {
+            c.freq = Math.max(PILEUP_START_HZ, this.rxFreq + rand(-150, 150));
+          }
+        }
+      }
+
+      if (isFinal && this.worked && this.worked.state === 'waiting_tu') {
+        this.finalSent = true;
+      }
+
+      // Polite callers hold off briefly after the DX addresses someone. Anyone who
+      // was transmitting over it heard nothing and keeps calling.
+      if (sentCall) {
+        for (const c of this.callers) {
+          if (c.justMissed) {
+            c.justMissed = false;
+            continue;
+          }
+          if (c.state === 'calling' && c.polite) c.nextCallTime = Math.max(c.nextCallTime, now + rand(0.5, 3));
+        }
+      }
+    }
+
+    /**
+     * A caller is deaf while his own key is down, so an operator message that
+     * overlaps his transmission is copied only in part, if at all.
+     */
+    missedTransmission(caller, opStart, opEnd) {
+      const overlap = Math.min(caller.txEnd, opEnd) - Math.max(caller.txStart, opStart);
+      if (overlap <= 0) return false;
+      return Math.random() < Math.min(1, overlap / Math.max(0.1, opEnd - opStart));
+    }
+
+    keepCalling(caller, now) {
+      caller.justMissed = true;
+      caller.nextCallTime = Math.max(caller.txEnd, now) + rand(0.1, 0.9);
+    }
+
+    /** The operator has sent a callsign: that station stops calling and stands by. */
+    addressCall(sentCall, now, opStart, opEnd) {
+      this.addressed = sentCall;
+
+      let target = this.callers.find((c) => c.call === sentCall && c.state === 'calling');
+
+      if (target) {
+        if (this.missedTransmission(target, opStart, opEnd) || Math.random() < BASE_COPY_ERROR) {
+          this.keepCalling(target, now);
+          return;
+        }
+      } else {
+        // A near-miss may be accepted by the station it resembles.
+        const near = this.callers.filter(
+          (c) => c.state === 'calling'
+            && editDistance(c.call, sentCall) === 1
+            && !this.missedTransmission(c, opStart, opEnd),
+        );
+        if (!near.length || Math.random() >= 0.55) return;
+        target = pickOne(near);
+      }
+
+      target.loggedAs = sentCall;
+      target.state = 'standby';
+      target.standbyUntil = now + STANDBY_PATIENCE;
+      if (target.txId) this.radio.cancel(target.txId);
+
+      this.worked = target;
+      this.finalSent = false;
+    }
+
+    /** He has copied the report and comes back with his own. */
+    sendExchange(caller, now) {
+      const start = now + rand(0.25, 0.9);
+      const text = this.exchangeText(caller);
+      const durations = morseDurations(text, caller.wpm, 0.06);
+      caller.txId = this.radio.transmit({
+        start, freq: caller.freq, snrDb: caller.snrDb, durations,
+      });
+      caller.exchangeEnd = start + totalDuration(durations);
+      caller.state = 'answering';
+    }
+
+    exchangeText(caller) {
+      // Cut numbers are the norm on CW; the full report still turns up now and then.
+      const rst = Math.random() < 0.9 ? '5NN' : '599';
+      const styles = [
+        rst,
+        `TU ${rst}`,
+        `${rst} TU`,
+        `${caller.call} ${rst}`,
+        `R ${rst} TU DE ${caller.call}`,
+        `BK DE ${caller.call} TU ${rst} GL 73 DE ${caller.call} TU E E`,
+      ];
+      const w = [0.42, 0.18, 0.15, 0.12, 0.08, 0.05];
+      let r = Math.random();
+      for (let i = 0; i < styles.length; i++) {
+        r -= w[i];
+        if (r <= 0) return styles[i];
+      }
+      return styles[0];
+    }
+
+    /* ---------- logging ---------- */
+
+    /** Writes the QSO in the callsign box to the log. Returns the entry. */
+    logQso(callInBox, now) {
+      if (!this.running || !callInBox) return null;
+      const call = callInBox.toUpperCase();
+
+      const last = this.log[this.log.length - 1];
+      if (last && last.call === call && now - last.at < 5) return null; // no duplicate on double "."
+
+      const worked = this.worked;
+      let status = ' ';
+      let points = 0;
+      let correct = null;
+
+      if (worked && worked.loggedAs === call) {
+        if (worked.call !== call) {
+          status = '-';
+          correct = worked.call;
+        } else if (worked.state === 'waiting_tu' && this.finalSent) {
+          status = worked.points === 3 ? '*' : '+';
+          points = worked.points;
+        }
+      }
+
+      const entry = {
+        at: now,
+        time: this.clockString(now),
+        call,
+        freq: worked ? worked.freq : this.rxFreq,
+        continent: worked ? worked.continent : '',
+        snr: worked ? Math.round(worked.snrDb) : 0,
+        status,
+        correct,
+        points,
+      };
+
+      this.score += points;
+      this.qsoCount++;
+      this.log.push(entry);
+
+      if (worked && status !== ' ') {
+        worked.state = 'done';
+        if (worked.txId) this.radio.cancel(worked.txId);
+        this.callers = this.callers.filter((c) => c !== worked);
+      } else if (worked) {
+        worked.state = 'calling';
+        worked.loggedAs = null;
+        worked.nextCallTime = now + rand(0.3, 1.5);
+      }
+
+      this.worked = null;
+      this.finalSent = false;
+      if (this.onLogChange) this.onLogChange();
+      return entry;
+    }
+
+    clockString(now) {
+      const elapsed = Math.max(0, now - this.startTime);
+      const m = Math.floor(elapsed / 60);
+      const s = Math.floor(elapsed % 60);
+      return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+    }
+
+    /* ---------- simulation tick ---------- */
+
+    tick(now) {
+      if (!this.running || this.paused) return;
+
+      // Each message reacts in turn, so a queued one cannot discard the previous.
+      while (this.pendingReactions.length && now >= this.pendingReactions[0].at) {
+        const r = this.pendingReactions.shift();
+        this.applyReaction(r.text, now, r.from, r.at);
+      }
+
+      const opBusy = now < this.opTxEnd;
+
+      for (const c of this.callers) {
+        if (c.state === 'standby') {
+          // Gives up waiting for a report and starts calling again.
+          if (now > c.standbyUntil) {
+            c.state = 'calling';
+            c.loggedAs = null;
+            c.nextCallTime = now + rand(0.2, 1.5);
+            if (this.worked === c) this.worked = null;
+          }
+          continue;
+        }
+        if (c.state === 'answering') {
+          if (now >= c.exchangeEnd) c.state = 'waiting_tu';
+          continue;
+        }
+        if (c.state === 'waiting_tu') {
+          // Gives up waiting and resumes calling if the DX never comes back.
+          if (now > c.exchangeEnd + 12) {
+            c.state = 'calling';
+            c.loggedAs = null;
+            c.nextCallTime = now + rand(0.2, 2);
+            if (this.worked === c) this.worked = null;
+          }
+          continue;
+        }
+        if (c.state !== 'calling') continue;
+        if (now < c.nextCallTime) continue;
+        if (opBusy && c.polite) {
+          c.nextCallTime = this.opTxEnd + rand(0.05, 1.2);
+          continue;
+        }
+
+        if (c.skill === SKILL_MONITOR && ++c.callsSinceMove >= 3 && Math.random() < 0.35) {
+          c.callsSinceMove = 0;
+          c.freq = Math.min(
+            PILEUP_START_HZ + PILEUP_SPREAD_HZ,
+            Math.max(PILEUP_START_HZ, c.freq + rand(-1500, 1500)),
+          );
+        }
+
+        const text = Math.random() < 0.45 ? `${c.call} ${c.call}` : c.call;
+        const durations = morseDurations(text, c.wpm, 0.05);
+        c.txStart = now + 0.05;
+        c.txEnd = c.txStart + totalDuration(durations);
+        c.txId = this.radio.transmit({
+          start: c.txStart, freq: c.freq, snrDb: c.snrDb, durations,
+        });
+        c.nextCallTime = c.txEnd + rand(CALL_GAP_MIN, CALL_GAP_MAX);
+      }
+
+      if (now >= this.endTime && this.onEnd) {
+        this.running = false;
+        this.onEnd();
+      }
+    }
+  }
+  return { Session };
+})();
+
+__mod["js/ui/waterfall.js"] = (() => {
+  const { FFT_SIZE, BIN_HZ, SPAN_HZ, SLOW_DECIM } = __mod["js/lib/config.js"];
+
+  const COLS = 1400;
+  const PX_PER_BIN = 3;
+  const SLOW_COLS = 200;
+
+  // Marker written where the operator transmitted and the waterfall held.
+  const GAP_COLUMNS = 4;
+  const GAP_RGB = [58, 18, 20];
+
+  // Blue -> cyan -> yellow -> white, the usual waterfall ramp.
+  function buildPalette() {
+    const pal = new Uint8Array(256 * 3);
+    for (let i = 0; i < 256; i++) {
+      const v = i / 255;
+      let r;
+      let g;
+      let b;
+      if (v < 0.35) {
+        const t = v / 0.35;
+        r = 0; g = 8 + 40 * t; b = 24 + 90 * t;
+      } else if (v < 0.6) {
+        const t = (v - 0.35) / 0.25;
+        r = 0; g = 48 + 160 * t; b = 114 + 60 * t;
+      } else if (v < 0.82) {
+        const t = (v - 0.6) / 0.22;
+        r = 255 * t; g = 208 + 40 * t; b = 174 - 150 * t;
+      } else {
+        const t = (v - 0.82) / 0.18;
+        r = 255; g = 248; b = 24 + 230 * t;
+      }
+      pal[i * 3] = r; pal[i * 3 + 1] = g; pal[i * 3 + 2] = b;
+    }
+    return pal;
+  }
+
+  const PALETTE = buildPalette();
+
+  function hzToBin(offsetHz) {
+    return Math.round((offsetHz + SPAN_HZ / 2) / BIN_HZ);
+  }
+
+  function binToHz(bin) {
+    return bin * BIN_HZ - SPAN_HZ / 2;
+  }
+
+  class Waterfall {
+    constructor(mainCanvas, slowCanvas, scaleCanvas) {
+      this.main = mainCanvas;
+      this.slow = slowCanvas;
+      this.scale = scaleCanvas;
+      this.mainCtx = mainCanvas.getContext('2d');
+      this.slowCtx = slowCanvas.getContext('2d');
+      this.scaleCtx = scaleCanvas.getContext('2d');
+
+      this.history = new Uint8Array(COLS * FFT_SIZE);
+      this.head = 0;
+      this.filled = 0;
+      this.gapFlags = new Uint8Array(COLS);
+
+      this.slowHistory = new Uint8Array(SLOW_COLS * FFT_SIZE);
+      this.slowHead = 0;
+      this.slowGapFlags = new Uint8Array(SLOW_COLS);
+      this.slowAccum = new Float32Array(FFT_SIZE);
+      this.slowCount = 0;
+
+      this.topBin = hzToBin(6000);
+      this.rxFreq = 2500;
+      this.bandwidth = 500;
+      this.txFreq = 1000;
+      this.timeOffset = 0; // columns scrolled back into history
+
+      this.buffer = document.createElement('canvas');
+      this.bufferCtx = this.buffer.getContext('2d');
+      this.slowBuffer = document.createElement('canvas');
+      this.slowBufferCtx = this.slowBuffer.getContext('2d');
+
+      this.resize();
+    }
+
+    get visibleBins() {
+      return Math.max(8, Math.floor(this.main.height / PX_PER_BIN));
+    }
+
+    get pageHz() {
+      return this.visibleBins * BIN_HZ;
+    }
+
+    resize() {
+      for (const c of [this.main, this.slow, this.scale]) {
+        const rect = c.getBoundingClientRect();
+        c.width = Math.max(1, Math.round(rect.width));
+        c.height = Math.max(1, Math.round(rect.height));
+      }
+      this.buffer.width = COLS;
+      this.buffer.height = this.visibleBins * PX_PER_BIN;
+      this.slowBuffer.width = SLOW_COLS;
+      this.slowBuffer.height = this.buffer.height;
+      this.redrawAll();
+    }
+
+    /** Frequency offset (Hz) at a vertical pixel position of the display. */
+    yToHz(y) {
+      const bin = this.topBin - Math.floor(y / PX_PER_BIN);
+      return binToHz(bin);
+    }
+
+    hzToY(hz) {
+      return (this.topBin - hzToBin(hz)) * PX_PER_BIN;
+    }
+
+    scrollPages(n) {
+      this.setTopBin(this.topBin + n * this.visibleBins);
+    }
+
+    scrollBins(n) {
+      this.setTopBin(this.topBin + n);
+    }
+
+    setTopBin(bin) {
+      const max = hzToBin(SPAN_HZ / 2 - 500);
+      const min = hzToBin(-SPAN_HZ / 2) + this.visibleBins;
+      this.topBin = Math.max(min, Math.min(max, Math.round(bin)));
+      this.redrawAll();
+    }
+
+    centerOn(hz) {
+      this.setTopBin(hzToBin(hz) + Math.floor(this.visibleBins / 2));
+    }
+
+    push(bins) {
+      this.history.set(bins, this.head * FFT_SIZE);
+      this.gapFlags[this.head] = 0;
+      this.drawColumn(this.bufferCtx, bins, this.head);
+      this.head = (this.head + 1) % COLS;
+      if (this.filled < COLS) this.filled++;
+
+      for (let i = 0; i < FFT_SIZE; i++) this.slowAccum[i] += bins[i];
+      if (++this.slowCount >= SLOW_DECIM) {
+        const avg = new Uint8Array(FFT_SIZE);
+        for (let i = 0; i < FFT_SIZE; i++) avg[i] = this.slowAccum[i] / this.slowCount;
+        this.slowHistory.set(avg, this.slowHead * FFT_SIZE);
+        this.slowGapFlags[this.slowHead] = 0;
+        this.drawColumn(this.slowBufferCtx, avg, this.slowHead);
+        this.slowHead = (this.slowHead + 1) % SLOW_COLS;
+        this.slowAccum.fill(0);
+        this.slowCount = 0;
+      }
+    }
+
+    /** Discards all history, for the start of a new session. */
+    clear() {
+      this.history.fill(0);
+      this.gapFlags.fill(0);
+      this.head = 0;
+      this.filled = 0;
+
+      this.slowHistory.fill(0);
+      this.slowGapFlags.fill(0);
+      this.slowHead = 0;
+      this.slowAccum.fill(0);
+      this.slowCount = 0;
+
+      this.timeOffset = 0;
+      this.redrawAll();
+    }
+
+    /** Marks the break left by an operator transmission. */
+    pushGap() {    for (let i = 0; i < GAP_COLUMNS; i++) {
+        this.gapFlags[this.head] = 1;
+        this.history.fill(0, this.head * FFT_SIZE, (this.head + 1) * FFT_SIZE);
+        this.drawGapColumn(this.bufferCtx, this.head);
+        this.head = (this.head + 1) % COLS;
+        if (this.filled < COLS) this.filled++;
+      }
+
+      this.slowGapFlags[this.slowHead] = 1;
+      this.slowHistory.fill(0, this.slowHead * FFT_SIZE, (this.slowHead + 1) * FFT_SIZE);
+      this.drawGapColumn(this.slowBufferCtx, this.slowHead);
+      this.slowHead = (this.slowHead + 1) % SLOW_COLS;
+      this.slowAccum.fill(0);
+      this.slowCount = 0;
+    }
+
+    drawGapColumn(ctx, col) {
+      const h = this.buffer.height;
+      const img = ctx.createImageData(1, h);
+      const d = img.data;
+      for (let p = 0; p < d.length; p += 4) {
+        d[p] = GAP_RGB[0]; d[p + 1] = GAP_RGB[1]; d[p + 2] = GAP_RGB[2]; d[p + 3] = 255;
+      }
+      ctx.putImageData(img, col, 0);
+    }
+
+    drawColumn(ctx, bins, col) {
+      const h = this.buffer.height;
+      const img = ctx.createImageData(1, h);
+      const d = img.data;
+      const nBins = this.visibleBins;
+      let p = 0;
+      for (let i = 0; i < nBins; i++) {
+        const bin = this.topBin - i;
+        const v = bin >= 0 && bin < FFT_SIZE ? bins[bin] : 0;
+        const r = PALETTE[v * 3];
+        const g = PALETTE[v * 3 + 1];
+        const b = PALETTE[v * 3 + 2];
+        for (let k = 0; k < PX_PER_BIN; k++) {
+          d[p] = r; d[p + 1] = g; d[p + 2] = b; d[p + 3] = 255;
+          p += 4;
+        }
+      }
+      ctx.putImageData(img, col, 0);
+    }
+
+    redrawAll() {
+      this.redrawBuffer(this.bufferCtx, this.buffer, this.history, COLS, this.gapFlags);
+      this.redrawBuffer(this.slowBufferCtx, this.slowBuffer, this.slowHistory, SLOW_COLS, this.slowGapFlags);
+    }
+
+    redrawBuffer(ctx, canvas, history, cols, gapFlags) {
+      const h = canvas.height;
+      if (!h) return;
+      const img = ctx.createImageData(cols, h);
+      const d = img.data;
+      const nBins = this.visibleBins;
+      for (let i = 0; i < nBins; i++) {
+        const bin = this.topBin - i;
+        const inRange = bin >= 0 && bin < FFT_SIZE;
+        for (let k = 0; k < PX_PER_BIN; k++) {
+          const row = i * PX_PER_BIN + k;
+          let p = row * cols * 4;
+          for (let c = 0; c < cols; c++) {
+            if (gapFlags[c]) {
+              d[p] = GAP_RGB[0];
+              d[p + 1] = GAP_RGB[1];
+              d[p + 2] = GAP_RGB[2];
+            } else {
+              const v = inRange ? history[c * FFT_SIZE + bin] : 0;
+              d[p] = PALETTE[v * 3];
+              d[p + 1] = PALETTE[v * 3 + 1];
+              d[p + 2] = PALETTE[v * 3 + 2];
+            }
+            d[p + 3] = 255;
+            p += 4;
+          }
+        }
+      }
+      ctx.putImageData(img, 0, 0);
+    }
+
+    render() {
+      this.blit(this.mainCtx, this.main, this.buffer, COLS, this.head, this.timeOffset);
+      this.blit(this.slowCtx, this.slow, this.slowBuffer, SLOW_COLS, this.slowHead, 0);
+      this.drawScale();
+    }
+
+    blit(ctx, canvas, buffer, cols, head, offset) {
+      const w = canvas.width;
+      const h = canvas.height;
+      ctx.clearRect(0, 0, w, h);
+      // Newest column sits at the right edge; `offset` scrolls back in time.
+      const end = (head - offset + cols * 2) % cols;
+      const start = (end - w + cols * 2) % cols;
+      if (start + w <= cols) {
+        ctx.drawImage(buffer, start, 0, w, buffer.height, 0, 0, w, h);
+      } else {
+        const first = cols - start;
+        ctx.drawImage(buffer, start, 0, first, buffer.height, 0, 0, first, h);
+        ctx.drawImage(buffer, 0, 0, w - first, buffer.height, first, 0, w - first, h);
+      }
+    }
+
+    drawScale() {
+      const ctx = this.scaleCtx;
+      const w = this.scale.width;
+      const h = this.scale.height;
+      ctx.clearRect(0, 0, w, h);
+      ctx.fillStyle = '#12161c';
+      ctx.fillRect(0, 0, w, h);
+
+      const topHz = binToHz(this.topBin);
+      const botHz = topHz - this.pageHz;
+
+      ctx.font = '10px ui-monospace, monospace';
+      ctx.textBaseline = 'middle';
+      const stepHz = 500;
+      const first = Math.ceil(botHz / stepHz) * stepHz;
+      for (let f = first; f <= topHz; f += stepHz) {
+        const y = this.hzToY(f);
+        const major = f % 1000 === 0;
+        ctx.strokeStyle = major ? '#5a6a7a' : '#2b3440';
+        ctx.beginPath();
+        ctx.moveTo(w - (major ? 10 : 5), y + 0.5);
+        ctx.lineTo(w, y + 0.5);
+        ctx.stroke();
+        if (major) {
+          ctx.fillStyle = '#8fa3b5';
+          ctx.fillText(((14024000 + f) / 1000).toFixed(1), 4, y);
+        }
+      }
+
+      // Receiver passband and centre.
+      const yTop = this.hzToY(this.rxFreq + this.bandwidth / 2);
+      const yBot = this.hzToY(this.rxFreq - this.bandwidth / 2);
+      ctx.fillStyle = 'rgba(60, 220, 120, 0.22)';
+      ctx.fillRect(0, yTop, w, Math.max(2, yBot - yTop));
+      ctx.strokeStyle = 'rgba(60, 220, 120, 0.8)';
+      ctx.strokeRect(0.5, yTop + 0.5, w - 1, Math.max(2, yBot - yTop) - 1);
+
+      const yc = this.hzToY(this.rxFreq);
+      ctx.fillStyle = '#7dffb0';
+      ctx.beginPath();
+      ctx.moveTo(0, yc);
+      ctx.lineTo(9, yc - 5);
+      ctx.lineTo(9, yc + 5);
+      ctx.closePath();
+      ctx.fill();
+
+      // Transmit frequency.
+      const yt = this.hzToY(this.txFreq);
+      if (yt >= -6 && yt <= h + 6) {
+        ctx.fillStyle = '#ff5a52';
+        ctx.beginPath();
+        ctx.moveTo(w, yt);
+        ctx.lineTo(w - 9, yt - 5);
+        ctx.lineTo(w - 9, yt + 5);
+        ctx.closePath();
+        ctx.fill();
+      }
+    }
+  }
+  return { PX_PER_BIN, COLS, hzToBin, binToHz, Waterfall };
+})();
+
+__mod["js/main.js"] = (() => {
+  const {
+    DEFAULT_SETTINGS, COMPETITION, BAND_CENTER_HZ, TX_OFFSET_HZ, PILEUP_START_HZ,
+    MIN_BW, MAX_BW, QSY_CLEAR_THRESHOLD_HZ,
+  } = __mod["js/lib/config.js"];
+  const { Radio } = __mod["js/audio/radio.js"];
+  const { Session } = __mod["js/engine/session.js"];
+  const { Waterfall } = __mod["js/ui/waterfall.js"];
+  const { toAdif, downloadText } = __mod["js/lib/adif.js"];
+
+  const $ = (id) => document.getElementById(id);
+
+  const el = {
+    statDx: $('stat-dx'), statTime: $('stat-time'), statQsos: $('stat-qsos'), statScore: $('stat-score'),
+    btnStart: $('btn-start'), btnPause: $('btn-pause'), btnStop: $('btn-stop'), btnRadio: $('btn-radio'),
+    wfMain: $('wf-main'), wfSlow: $('wf-slow'), wfScale: $('wf-scale'), splitter: $('splitter'),
+    btnPage: $('btn-page'),
+    readoutFreq: $('readout-freq'), readoutBw: $('readout-bw'), readoutState: $('readout-state'),
+    callInput: $('call-input'), msgGrid: $('msg-grid'), btnSave: $('btn-save'),
+    logPanel: $('log-panel'), logBody: $('log-body'),
+    dlgPileup: $('dlg-pileup'), formPileup: $('form-pileup'),
+    dlgRadio: $('dlg-radio'), formRadio: $('form-radio'),
+    dlgResults: $('dlg-results'), resultsBody: $('results-body'),
+    btnAdif: $('btn-adif'), btnHistory: $('btn-history'), btnResultsClose: $('btn-results-close'),
+  };
+
+  const STORE_SETTINGS = 'pileup-runner-settings';
+  const STORE_HISTORY = 'pileup-runner-history';
+
+  let settings = loadSettings();
+  const radio = new Radio();
+  const waterfall = new Waterfall(el.wfMain, el.wfSlow, el.wfScale);
+
+  let session = null;
+  let wallStart = 0;
+  let rxFreq = PILEUP_START_HZ + 2000;
+  let lastSentCall = '';
+  let esmStage = 'qrz';
+  let lastLoggedEntry = null;
+
+  /* ---------- settings ---------- */
+
+  function loadSettings() {
+    try {
+      const raw = JSON.parse(localStorage.getItem(STORE_SETTINGS) || '{}');
+      return { ...DEFAULT_SETTINGS, ...raw, messages: { ...DEFAULT_SETTINGS.messages, ...(raw.messages || {}) } };
+    } catch {
+      return { ...DEFAULT_SETTINGS };
+    }
+  }
+
+  function saveSettings() {
+    localStorage.setItem(STORE_SETTINGS, JSON.stringify(settings));
+  }
+
+  /* ---------- radio / tuning ---------- */
+
+  function setRxFreq(hz, { fromUser = true } = {}) {
+    const clamped = Math.max(-20000, Math.min(20000, hz));
+    const moved = Math.abs(clamped - rxFreq);
+    rxFreq = clamped;
+    waterfall.rxFreq = rxFreq;
+    if (session) session.rxFreq = rxFreq;
+    radio.setRx(rxFreq, settings.bandwidth);
+    if (fromUser && moved > QSY_CLEAR_THRESHOLD_HZ) clearCall();
+    updateReadout();
+  }
+
+  function setBandwidth(hz) {
+    settings.bandwidth = Math.max(MIN_BW, Math.min(MAX_BW, Math.round(hz / 10) * 10));
+    waterfall.bandwidth = settings.bandwidth;
+    radio.setRx(rxFreq, settings.bandwidth);
+    saveSettings();
+    updateReadout();
+  }
+
+  function updateReadout() {
+    el.readoutFreq.textContent = ((BAND_CENTER_HZ + rxFreq) / 1000).toFixed(2);
+    el.readoutBw.textContent = `${settings.bandwidth} Hz`;
+  }
+
+  /* ---------- messages ---------- */
+
+  function expand(text) {
+    return text
+      .replace(/<my_call>/gi, settings.dxCall.toUpperCase())
+      .replace(/<his_call>/gi, currentCall());
+  }
+
+  function currentCall() {
+    return el.callInput.value.trim().toUpperCase();
+  }
+
+  function tuMessage() {
+    const n = Math.max(1, settings.autoDxCallEvery);
+    const base = settings.messages.F3;
+    if (session && session.qsoCount > 0 && session.qsoCount % n === 0) {
+      return base.replace(/\bTU\b/, `TU ${settings.dxCall.toUpperCase()}`);
+    }
+    return expand(base);
+  }
+
+  function send(text) {
+    if (!session || !session.running) return;
+    const out = expand(text).replace(/\s+/g, ' ').trim();
+    if (!out) return;
+    session.sendText(out, radio.time);
+    if (out.includes(currentCall()) && currentCall()) lastSentCall = currentCall();
+    flashTx();
+  }
+
+  function sendFKey(key) {
+    if (key === 'F3') send(tuMessage());
+    else send(settings.messages[key]);
+  }
+
+  function macroQrz() {
+    send(settings.messages.F1);
+    esmStage = 'qrz';
+    updateEsmHint();
+  }
+
+  function macroReport() {
+    const call = currentCall();
+    if (!call) return;
+    send(`${call} ${settings.messages.F2}`);
+    esmStage = 'report';
+    updateEsmHint();
+  }
+
+  function macroFinish() {
+    const call = currentCall();
+    if (!call) return;
+    let text = '';
+    if (call !== lastSentCall) text += `${call} `;
+    text += tuMessage();
+    send(text);
+    writeLog(call);
+  }
+
+  function writeLog(call) {
+    if (!session || !session.running) return;
+    const entry = session.logQso(call || currentCall(), radio.time);
+    if (!entry) return;
+    lastLoggedEntry = entry;
+    clearCall();
+    esmStage = 'qrz';
+    updateEsmHint();
+    renderLog();
+    updateStats();
+  }
+
+  function clearCall() {
+    el.callInput.value = '';
+    lastSentCall = '';
+    esmStage = 'qrz';
+    updateEsmHint();
+  }
+
+  function updateEsmHint() {
+    for (const b of el.msgGrid.querySelectorAll('button')) b.classList.remove('esm-next');
+    if (!settings.esm) return;
+    const map = { qrz: 'F1', report: 'F2', final: 'F3' };
+    const key = map[esmStage];
+    const btn = el.msgGrid.querySelector(`[data-key="${key}"]`);
+    if (btn) btn.classList.add('esm-next');
+  }
+
+  function flashTx() {
+    el.readoutState.textContent = 'TX';
+    el.readoutState.className = 'state-tx';
+  }
+
+  /* ---------- log rendering ---------- */
+
+  function renderLog() {
+    if (!session) {
+      el.logBody.innerHTML = '';
+      return;
+    }
+    const rows = session.log.slice(-5).reverse();
+    el.logBody.innerHTML = rows.map((q) => {
+      const cls = q.status === '+' ? 'st-good' : q.status === '*' ? 'st-mult' : q.status === '-' ? 'st-bad' : '';
+      const mark = q.status.trim() || '·';
+      const correct = q.correct ? ` <span class="correct">{${q.correct}}</span>` : '';
+      return `<tr>
+        <td>${q.time}</td>
+        <td>${q.call}${correct}</td>
+        <td>${((BAND_CENTER_HZ + q.freq) / 1000).toFixed(2)}</td>
+        <td>${q.continent}</td>
+        <td>${q.snr}</td>
+        <td class="${cls}">${mark}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  function updateStats() {
+    if (!session) return;
+    el.statQsos.textContent = session.log.filter((q) => q.points > 0).length;
+    el.statScore.textContent = session.score;
+  }
+
+  /* ---------- session lifecycle ---------- */
+
+  function fillPileupForm() {
+    const f = el.formPileup;
+    f.dxCall.value = settings.dxCall;
+    f.opCall.value = settings.opCall;
+    f.callers.value = settings.callers;
+    f.snrDb.value = settings.snrDb;
+    f.difficult.value = settings.difficult;
+    f.minutes.value = settings.minutes;
+    f.querySelector(`input[name="mode"][value="${settings.mode}"]`).checked = true;
+    applyModeLock();
+  }
+
+  function applyModeLock() {
+    const f = el.formPileup;
+    const comp = f.mode.value === 'competition';
+    if (comp) {
+      f.callers.value = COMPETITION.callers;
+      f.snrDb.value = COMPETITION.snrDb;
+      f.minutes.value = COMPETITION.minutes;
+    }
+    for (const name of ['callers', 'snrDb', 'minutes']) f[name].disabled = comp;
+  }
+
+  async function startSession() {
+    await radio.init();
+    await radio.resume();
+
+    session = new Session(radio, settings);
+    session.onEnd = endSession;
+    session.rxFreq = rxFreq;
+
+    wallStart = Date.now();
+    session.start(radio.time);
+    radio.setRunning(true);
+    radio.setRx(rxFreq, settings.bandwidth);
+    radio.setAudio({
+      pitch: settings.pitch, afGain: settings.afGain, sidetoneGain: settings.sidetoneGain,
+    });
+
+    waterfall.clear();
+    waterfall.txFreq = TX_OFFSET_HZ;
+    waterfall.centerOn(PILEUP_START_HZ + 2000);
+
+    el.statDx.textContent = settings.dxCall.toUpperCase();
+    el.logPanel.classList.toggle('competition', session.settings.mode === 'competition');
+    el.btnStart.disabled = true;
+    el.btnPause.disabled = false;
+    el.btnStop.disabled = false;
+    clearCall();
+    renderLog();
+    updateStats();
+    el.callInput.focus();
+  }
+
+  function endSession() {
+    if (!session) return;
+    const s = session;
+    s.running = false;
+    s.stop();
+    radio.setRunning(false);
+
+    const valid = s.log.filter((q) => q.points > 0);
+    const line = [
+      new Date(wallStart).toISOString().slice(0, 16).replace('T', ' '),
+      `Op=${s.settings.opCall || '?'}`,
+      `DX=${s.settings.dxCall}`,
+      `Mode=${s.settings.mode === 'competition' ? 'Competition' : 'Practice'}`,
+      `Callers=${s.settings.callers}`,
+      `SNR=${s.settings.snrDb}`,
+      `Min=${s.settings.minutes}`,
+      `QSO=${valid.length}`,
+      `Score=${s.score}`,
+    ].join('  ');
+    const history = JSON.parse(localStorage.getItem(STORE_HISTORY) || '[]');
+    history.push(line);
+    localStorage.setItem(STORE_HISTORY, JSON.stringify(history));
+
+    el.resultsBody.innerHTML = `
+      <div class="big">${s.score} points</div>
+      <div>${valid.length} valid QSO · ${s.log.length} log entries</div>
+      <div>3-pointers: ${valid.filter((q) => q.points === 3).length}</div>
+      <div>Busted / not in his log: ${s.log.length - valid.length}</div>
+      <p class="note">${s.settings.mode === 'competition'
+      ? 'Competition result stored locally. It is not verifiable and cannot be submitted to the original high-score table.'
+      : 'Practice result — for your own information only.'}</p>`;
+    el.dlgResults.showModal();
+
+    el.btnStart.disabled = false;
+    el.btnPause.disabled = true;
+    el.btnStop.disabled = true;
+    el.btnPause.textContent = 'Pause';
+  }
+
+  /* ---------- waterfall input ---------- */
+
+  function tuneFromEvent(canvas, e) {
+    const rect = canvas.getBoundingClientRect();
+    setRxFreq(waterfall.yToHz(e.clientY - rect.top));
+  }
+
+  function attachWaterfallInput() {
+    let drag = null;
+
+    el.wfMain.addEventListener('pointerdown', (e) => {
+      el.wfMain.setPointerCapture(e.pointerId);
+      drag = { x: e.clientX, y: e.clientY, moved: false, offset: waterfall.timeOffset };
+    });
+
+    el.wfMain.addEventListener('pointermove', (e) => {
+      if (!drag) return;
+      const dx = e.clientX - drag.x;
+      if (Math.abs(dx) > 3) {
+        drag.moved = true;
+        // Dragging the waterfall to the right scrolls back in time and pauses.
+        waterfall.timeOffset = Math.max(0, Math.min(1000, drag.offset + dx));
+        if (waterfall.timeOffset > 0 && session && !session.paused) setPaused(true);
+      }
+    });
+
+    el.wfMain.addEventListener('pointerup', (e) => {
+      if (drag && !drag.moved) tuneFromEvent(el.wfMain, e);
+      drag = null;
+    });
+
+    el.wfSlow.addEventListener('click', (e) => tuneFromEvent(el.wfSlow, e));
+
+    let scaleDrag = null;
+    el.wfScale.addEventListener('pointerdown', (e) => {
+      const rect = el.wfScale.getBoundingClientRect();
+      const y = e.clientY - rect.top;
+      const yTop = waterfall.hzToY(rxFreq + settings.bandwidth / 2);
+      const yBot = waterfall.hzToY(rxFreq - settings.bandwidth / 2);
+      const onPassband = y >= yTop - 3 && y <= yBot + 3;
+      el.wfScale.setPointerCapture(e.pointerId);
+      scaleDrag = {
+        y, moved: false, mode: onPassband ? 'bw' : 'scroll',
+        bw: settings.bandwidth, topBin: waterfall.topBin,
+      };
+    });
+
+    el.wfScale.addEventListener('pointermove', (e) => {
+      if (!scaleDrag) return;
+      const rect = el.wfScale.getBoundingClientRect();
+      const dy = (e.clientY - rect.top) - scaleDrag.y;
+      if (Math.abs(dy) > 2) scaleDrag.moved = true;
+      if (!scaleDrag.moved) return;
+      if (scaleDrag.mode === 'bw') setBandwidth(scaleDrag.bw + Math.abs(dy) * 6 * Math.sign(dy));
+      else waterfall.setTopBin(scaleDrag.topBin + dy / 3);
+    });
+
+    el.wfScale.addEventListener('pointerup', (e) => {
+      if (scaleDrag && !scaleDrag.moved) tuneFromEvent(el.wfScale, e);
+      scaleDrag = null;
+    });
+
+    el.btnPage.addEventListener('click', () => waterfall.scrollPages(1));
+    el.btnPage.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      waterfall.scrollPages(-1);
+    });
+
+    // Splitter resizes the slow waterfall.
+    let splitDrag = null;
+    el.splitter.addEventListener('pointerdown', (e) => {
+      el.splitter.setPointerCapture(e.pointerId);
+      splitDrag = { x: e.clientX, w: el.wfSlow.getBoundingClientRect().width };
+    });
+    el.splitter.addEventListener('pointermove', (e) => {
+      if (!splitDrag) return;
+      const w = Math.max(0, Math.min(400, splitDrag.w + (e.clientX - splitDrag.x)));
+      el.wfSlow.style.width = `${w}px`;
+      waterfall.resize();
+    });
+    el.splitter.addEventListener('pointerup', () => { splitDrag = null; });
+  }
+
+  function setPaused(value) {
+    if (!session) return;
+    session.paused = value;
+    el.btnPause.textContent = value ? 'Resume' : 'Pause';
+    if (!value) waterfall.timeOffset = 0;
+  }
+
+  /* ---------- keyboard ---------- */
+
+  const MACRO_QRZ = '\\';
+  const MACRO_REPORT = ';';
+  const MACRO_FINISH = '.';
+
+  function onKeyDown(e) {
+    if (document.querySelector('dialog[open]')) return;
+
+    if (/^F[1-7]$/.test(e.key)) {
+      e.preventDefault();
+      sendFKey(e.key);
+      return;
+    }
+
+    switch (e.key) {
+      case 'Escape':
+        e.preventDefault();
+        if (session) session.abortTx();
+        return;
+      case 'PageUp':
+        e.preventDefault();
+        waterfall.scrollPages(1);
+        return;
+      case 'PageDown':
+        e.preventDefault();
+        waterfall.scrollPages(-1);
+        return;
+      case 'ArrowUp':
+        e.preventDefault();
+        setBandwidth(settings.bandwidth + 50);
+        return;
+      case 'ArrowDown':
+        e.preventDefault();
+        setBandwidth(settings.bandwidth - 50);
+        return;
+      case 'F11':
+        e.preventDefault();
+        clearCall();
+        return;
+      case MACRO_QRZ:
+        e.preventDefault();
+        macroQrz();
+        return;
+      case MACRO_REPORT:
+        e.preventDefault();
+        macroReport();
+        return;
+      case MACRO_FINISH:
+      case 'Insert':
+        e.preventDefault();
+        macroFinish();
+        return;
+      default:
+        break;
+    }
+
+    if ((e.ctrlKey || e.altKey) && e.key.toLowerCase() === 'w') {
+      e.preventDefault();
+      clearCall();
+      return;
+    }
+
+    if (e.key === ' ' && settings.esm) {
+      e.preventDefault();
+      if (currentCall()) {
+        esmStage = 'final';
+        updateEsmHint();
+      }
+      return;
+    }
+
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (!settings.esm) {
+        writeLog(currentCall());
+        return;
+      }
+      if (esmStage === 'qrz' && !currentCall()) macroQrz();
+      else if (esmStage === 'final') macroFinish();
+      else macroReport();
+      return;
+    }
+
+    // Everything else that is a callsign character goes to the input box.
+    if (e.key.length === 1 && /[a-zA-Z0-9/]/.test(e.key) && document.activeElement !== el.callInput) {
+      el.callInput.focus();
+    }
+  }
+
+  /* ---------- main loop ---------- */
+
+  function frame() {
+    if (session && session.running) {
+      const now = radio.time;
+      session.tick(now);
+      const left = session.remaining(now);
+      el.statTime.textContent = `${String(Math.floor(left / 60)).padStart(2, '0')}:${String(Math.floor(left % 60)).padStart(2, '0')}`;
+      const tx = session.transmitting;
+      el.readoutState.textContent = tx ? 'TX' : 'RX';
+      el.readoutState.className = tx ? 'state-tx' : 'state-rx';
+      updateStats();
+    }
+    waterfall.render();
+    requestAnimationFrame(frame);
+  }
+
+  /* ---------- wiring ---------- */
+
+  function init() {
+    waterfall.rxFreq = rxFreq;
+    waterfall.bandwidth = settings.bandwidth;
+    waterfall.txFreq = TX_OFFSET_HZ;
+    waterfall.centerOn(PILEUP_START_HZ + 2000);
+    updateReadout();
+    updateEsmHint();
+
+    radio.onSpectrum = ({ bins }) => {
+      if (session && session.running && !session.paused) waterfall.push(bins);
+    };
+
+    radio.onTxGap = () => {
+      if (session && session.running && !session.paused) waterfall.pushGap();
+    };
+
+    el.btnStart.addEventListener('click', () => {
+      fillPileupForm();
+      el.dlgPileup.showModal();
+    });
+
+    el.formPileup.addEventListener('change', (e) => {
+      if (e.target.name === 'mode') applyModeLock();
+    });
+
+    el.dlgPileup.addEventListener('close', () => {
+      if (el.dlgPileup.returnValue !== 'ok') return;
+      const f = el.formPileup;
+      Object.assign(settings, {
+        dxCall: f.dxCall.value.trim().toUpperCase(),
+        opCall: f.opCall.value.trim().toUpperCase(),
+        callers: Number(f.callers.value),
+        snrDb: Number(f.snrDb.value),
+        difficult: f.difficult.value,
+        minutes: Number(f.minutes.value),
+        mode: f.mode.value,
+      });
+      saveSettings();
+      startSession();
+    });
+
+    el.btnPause.addEventListener('click', () => setPaused(!session?.paused));
+    el.btnStop.addEventListener('click', endSession);
+
+    el.btnRadio.addEventListener('click', () => {
+      const f = el.formRadio;
+      for (const name of ['pitch', 'bandwidth', 'afGain', 'sidetoneGain', 'wpm', 'autoDxCallEvery']) {
+        f[name].value = settings[name];
+      }
+      f.esm.checked = settings.esm;
+      syncRadioOutputs();
+      el.dlgRadio.showModal();
+    });
+
+    el.formRadio.addEventListener('input', () => {
+      const f = el.formRadio;
+      settings.pitch = Number(f.pitch.value);
+      settings.afGain = Number(f.afGain.value);
+      settings.sidetoneGain = Number(f.sidetoneGain.value);
+      settings.wpm = Number(f.wpm.value);
+      settings.autoDxCallEvery = Number(f.autoDxCallEvery.value);
+      settings.esm = f.esm.checked;
+      if (session) session.settings.wpm = settings.wpm;
+      setBandwidth(Number(f.bandwidth.value));
+      radio.setAudio({
+        pitch: settings.pitch, afGain: settings.afGain, sidetoneGain: settings.sidetoneGain,
+      });
+      saveSettings();
+      syncRadioOutputs();
+      updateEsmHint();
+    });
+
+    el.msgGrid.addEventListener('click', (e) => {
+      const btn = e.target.closest('button');
+      if (!btn) return;
+      if (btn.id === 'btn-save') writeLog(currentCall());
+      else sendFKey(btn.dataset.key);
+      el.callInput.focus();
+    });
+
+    el.btnResultsClose.addEventListener('click', () => el.dlgResults.close());
+    el.btnAdif.addEventListener('click', () => {
+      if (session) downloadText(`pileup-${new Date(wallStart).toISOString().slice(0, 10)}.adi`, toAdif(session, wallStart));
+    });
+    el.btnHistory.addEventListener('click', () => {
+      const history = JSON.parse(localStorage.getItem(STORE_HISTORY) || '[]');
+      downloadText('pileup-runner-history.txt', history.join('\n'));
+    });
+
+    el.callInput.addEventListener('input', () => {
+      el.callInput.value = el.callInput.value.toUpperCase().replace(/[^A-Z0-9/]/g, '');
+    });
+
+    window.addEventListener('keydown', onKeyDown);
+    window.addEventListener('resize', () => waterfall.resize());
+    attachWaterfallInput();
+
+    requestAnimationFrame(frame);
+  }
+
+  function syncRadioOutputs() {
+    for (const label of el.formRadio.querySelectorAll('label')) {
+      const input = label.querySelector('input[type="range"]');
+      const out = label.querySelector('output');
+      if (input && out) out.value = input.value;
+    }
+  }
+
+  init();
+  return {  };
+})();
+})();
+</script>
+</body>
+</html>
