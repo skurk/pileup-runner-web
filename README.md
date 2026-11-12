@@ -30,3 +30,7 @@ This project is released under the GNU General Public License v3.0, see the incl
 ## AI transparency
 
 AI assistance was used during the development of this application. I suck at GUI design.
+
+## Author
+
+73 de LB5SH Stian
