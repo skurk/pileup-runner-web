@@ -27,6 +27,6 @@ Modern web browser (Chrome, Brave, Opera, Edge, or equivalent)
 
 This project is released under the GNU General Public License v3.0, see the included LICENSE file for details.
 
-## AI usage
+## AI transparency
 
-AI assistance was used during the development of this application.
+AI assistance was used during the development of this application. I suck at GUI design.
